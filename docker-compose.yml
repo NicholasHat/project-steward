@@ -1,0 +1,66 @@
+# Full private stack, one command: `docker compose up -d`.
+# app (FastAPI) + Postgres/pgvector + Ollama (local LLM) + Caddy (HTTPS proxy).
+# Ingested content never leaves this compose network in the default config.
+
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-steward}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-steward}
+      POSTGRES_DB: ${POSTGRES_DB:-steward}
+    ports:
+      - "5433:5432"  # exposed for local dev (host -> localhost:5433; 5432 kept free)
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-steward}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  ollama:
+    image: ollama/ollama:latest
+    volumes:
+      - ollama:/root/.ollama
+    # Uncomment on a GPU host (needs the NVIDIA container toolkit):
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [gpu]
+
+  api:
+    build: .
+    env_file: .env
+    depends_on:
+      db:
+        condition: service_healthy
+      ollama:
+        condition: service_started
+    # Persist ingested files / working data outside the container.
+    volumes:
+      - artifacts:/data
+
+  caddy:
+    image: caddy:2
+    depends_on:
+      - api
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS:-:80}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  pgdata:
+  ollama:
+  artifacts:
+  caddy_data:
+  caddy_config:

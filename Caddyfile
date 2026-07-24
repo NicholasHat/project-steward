@@ -1,0 +1,7 @@
+# Reverse proxy for the API. With a real domain in SITE_ADDRESS, Caddy
+# provisions and renews HTTPS certificates automatically (Let's Encrypt).
+# For local use, SITE_ADDRESS defaults to :80 (plain HTTP).
+{$SITE_ADDRESS} {
+	encode gzip
+	reverse_proxy api:8000
+}
