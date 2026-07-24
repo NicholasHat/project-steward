@@ -222,12 +222,21 @@ class StructuredTable(Base):
 # Entities & dates (multi-signal, confidence-scored)                          #
 # --------------------------------------------------------------------------- #
 class Entity(Base):
+    """Canonical entity, scoped to a project — "Alice" in one project is a
+    distinct entity from "Alice" in another (owner isolation + correct
+    cross-project separation for the relationship graph)."""
+
     __tablename__ = "entities"
     __table_args__ = (
-        UniqueConstraint("type", "normalized_value", name="entity_type_value"),
+        UniqueConstraint(
+            "project_id", "type", "normalized_value", name="entity_project_type_value"
+        ),
     )
 
     id: Mapped[uuid.UUID] = _pk()
+    project_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("projects.id", ondelete="CASCADE"), index=True
+    )
     type: Mapped[EntityType] = mapped_column(Enum(EntityType, native_enum=False, length=16))
     value: Mapped[str] = mapped_column(Text)
     normalized_value: Mapped[str] = mapped_column(Text)

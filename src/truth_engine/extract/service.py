@@ -199,7 +199,11 @@ def _replace_entity_mentions(
 
     for mention in mentions:
         entity = _get_or_create_entity(
-            session, mention.entity_type, mention.value, mention.normalized_value
+            session,
+            artifact.project_id,
+            mention.entity_type,
+            mention.value,
+            mention.normalized_value,
         )
         mention_row = EntityMention(
             entity_id=entity.id,
@@ -230,15 +234,26 @@ def _replace_entity_mentions(
 
 
 def _get_or_create_entity(
-    session: Session, entity_type: EntityType, value: str, normalized_value: str
+    session: Session,
+    project_id: uuid.UUID,
+    entity_type: EntityType,
+    value: str,
+    normalized_value: str,
 ) -> Entity:
     entity = session.scalar(
         select(Entity).where(
-            Entity.type == entity_type, Entity.normalized_value == normalized_value
+            Entity.project_id == project_id,
+            Entity.type == entity_type,
+            Entity.normalized_value == normalized_value,
         )
     )
     if entity is None:
-        entity = Entity(type=entity_type, value=value, normalized_value=normalized_value)
+        entity = Entity(
+            project_id=project_id,
+            type=entity_type,
+            value=value,
+            normalized_value=normalized_value,
+        )
         session.add(entity)
         session.flush()
     return entity
