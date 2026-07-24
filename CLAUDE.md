@@ -79,9 +79,11 @@ audit/versioning, *and* embeddings (`db.models.Embedding.vector`). No separate v
 
 - Config via `truth_engine.config.Settings` (env prefix `TRUTH_`, `.env` file). Never read
   `os.environ` directly.
-- Model access goes through `reasoning.providers` adapters. Default is fully private
-  (local Ollama LLM + local sentence-transformers). Opt into a hosted model only via
-  `TRUTH_LLM_PROVIDER=anthropic` (+ key) — it trades privacy for quality; keep it opt-in.
+- Model access goes through `reasoning.providers` adapters. Default is fully private:
+  reasoning LLM and embeddings both via local Ollama (`nomic-embed-text`, 768-dim). Opt
+  into a hosted reasoning model via `TRUTH_LLM_PROVIDER=anthropic` (+ key) — a
+  per-environment choice (dev=ollama, prod often=anthropic to avoid GPU cost). Embeddings
+  stay local regardless, so raw document text never leaves the box.
 - DB enums are `enum.StrEnum` stored as `Enum(..., native_enum=False)` (VARCHAR + CHECK),
   for painless migrations.
 - Heavy ML/parsing deps live in the `pipeline` optional group so the API and migrations
@@ -96,3 +98,6 @@ audit/versioning, *and* embeddings (`db.models.Embedding.vector`). No separate v
   `upgrade()`. The existing initial migration shows the pattern.
 - Alembic uses a **sync** psycopg engine (`alembic/env.py`); the app uses the **async**
   engine (`db/session.py`). Same `TRUTH_DATABASE_URL` works for both (psycopg 3).
+- **Embedding `num_ctx`:** Ollama silently caps `nomic-embed-text` at 2048 tokens; the
+  provider passes `num_ctx=8192` explicitly (`Settings.embedding_num_ctx`). Don't remove it
+  — long doc-level summaries would get truncated before embedding.

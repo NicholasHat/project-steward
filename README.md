@@ -32,8 +32,9 @@ Three product surfaces:
 ## Tech stack
 
 Python 3.12 · FastAPI · PostgreSQL 16 + pgvector · SQLAlchemy 2.0 + Alembic ·
-local `sentence-transformers` embeddings · local LLM via Ollama (adapter allows a hosted
-model) · React + Vite dashboard (added later) · Docker Compose + Caddy for deployment.
+local `nomic-embed-text` embeddings via Ollama (768-dim, 8192-token context) · local
+reasoning LLM via Ollama (adapter allows a hosted model) · React + Vite dashboard (added
+later) · Docker Compose + Caddy for deployment.
 
 ## Local development
 
@@ -63,14 +64,30 @@ third-party inference API in the default config.
    at the server.
 3. **Launch** — `docker compose up -d`. This brings up FastAPI + Postgres/pgvector +
    Ollama + Caddy. Caddy provisions HTTPS automatically via Let's Encrypt.
-4. **Pull a model** — `docker compose exec ollama ollama pull llama3.1:8b`.
+4. **Pull the models** — the embedding model and (if using local reasoning) the LLM:
+   ```bash
+   docker compose exec ollama ollama pull nomic-embed-text
+   docker compose exec ollama ollama pull llama3.1:8b   # skip if TRUTH_LLM_PROVIDER=anthropic
+   ```
 5. **Done** — the app is reachable at your domain; other people can register and log in.
    All ingested data lives only in the `pgdata`/`artifacts` volumes on your box.
 
 ### Compute caveat
 
-The local LLM needs real compute. A small model (8B) runs on CPU (slower) or a modest GPU
-VM (faster, pricier — uncomment the GPU block in `docker-compose.yml`). If you'd rather not
-pay for a GPU, set `TRUTH_LLM_PROVIDER=anthropic` + `TRUTH_ANTHROPIC_API_KEY` to route the
-few reasoning calls to a hosted model — this trades some privacy for cost/quality. Make it
-a conscious choice.
+The two local models have very different hosting costs — don't conflate them:
+
+- **Embeddings** (`nomic-embed-text`, ~0.3 GB) run fine on CPU. Cheap to self-host anywhere
+  (a $5–20/mo CPU VPS). This layer sees raw document text, so keeping it local is the core
+  of the privacy story.
+- **The reasoning LLM** (direction/drift, gaps, renaming, report — the judgment calls) is
+  the expensive part. Apple Silicon's unified memory runs a 7B+ model free on your Mac; a
+  generic CPU-only cloud VPS runs the same model painfully slowly.
+
+So the production decision is per-environment:
+- **(a) GPU host, everything local** — 100% no-egress, higher infra cost (uncomment the GPU
+  block in `docker-compose.yml`); or
+- **(b) cheap CPU box, hosted reasoning LLM** — set `TRUTH_LLM_PROVIDER=anthropic` +
+  `TRUTH_ANTHROPIC_API_KEY`. Embeddings/parsing stay local, so raw document text never
+  leaves the box — only the already-extracted, summarized signal goes to the API. Given the
+  spec treats raw content as sensitive, **(b) is the pragmatic default**. Make it an
+  explicit per-env config choice, not a silent one.

@@ -116,19 +116,54 @@ class EmbeddingProvider(ABC):
         ...
 
 
-class LocalEmbeddingProvider(EmbeddingProvider):
-    """sentence-transformers on-box. Lazily loads the model on first embed()."""
+class OllamaEmbeddingProvider(EmbeddingProvider):
+    """Local embeddings via Ollama — the private default (nomic-embed-text).
 
-    def __init__(self, model: str, dim: int) -> None:
+    IMPORTANT: nomic-embed-text natively supports an 8192-token context, but Ollama
+    defaults to num_ctx=2048. We pass num_ctx explicitly so long doc-level summaries
+    (which feed drift detection) aren't silently truncated before embedding. Do not
+    drop this option without a matching model-context decision.
+    """
+
+    def __init__(self, base_url: str, model: str, dim: int, num_ctx: int) -> None:
+        self._base_url = base_url.rstrip("/")
         self.model = model
         self.dim = dim
+        self._num_ctx = num_ctx
+
+    def embed(self, texts: list[str]) -> list[list[float]]:
+        with httpx.Client(timeout=120) as client:
+            resp = client.post(
+                f"{self._base_url}/api/embed",
+                json={
+                    "model": self.model,
+                    "input": texts,
+                    "options": {"num_ctx": self._num_ctx},
+                },
+            )
+            resp.raise_for_status()
+            return resp.json()["embeddings"]
+
+
+class SentenceTransformersEmbeddingProvider(EmbeddingProvider):
+    """In-process HF embeddings (alternate: a CPU box that doesn't run Ollama).
+
+    Set TRUTH_EMBEDDING_MODEL to the HF id (e.g. nomic-ai/nomic-embed-text-v1.5).
+    max_seq_length is the sentence-transformers equivalent of Ollama's num_ctx.
+    """
+
+    def __init__(self, model: str, dim: int, num_ctx: int) -> None:
+        self.model = model
+        self.dim = dim
+        self._num_ctx = num_ctx
         self._st = None
 
     def _ensure_loaded(self) -> None:
         if self._st is None:
             from sentence_transformers import SentenceTransformer  # lazy: pipeline extra
 
-            self._st = SentenceTransformer(self.model)
+            self._st = SentenceTransformer(self.model, trust_remote_code=True)
+            self._st.max_seq_length = self._num_ctx
 
     def embed(self, texts: list[str]) -> list[list[float]]:
         self._ensure_loaded()
@@ -138,8 +173,17 @@ class LocalEmbeddingProvider(EmbeddingProvider):
 
 def _build_embedding(settings: Settings) -> EmbeddingProvider:
     match settings.embedding_provider:
-        case "local":
-            return LocalEmbeddingProvider(settings.embedding_model, settings.embedding_dim)
+        case "ollama":
+            return OllamaEmbeddingProvider(
+                settings.ollama_base_url,
+                settings.embedding_model,
+                settings.embedding_dim,
+                settings.embedding_num_ctx,
+            )
+        case "sentence_transformers":
+            return SentenceTransformersEmbeddingProvider(
+                settings.embedding_model, settings.embedding_dim, settings.embedding_num_ctx
+            )
         case other:  # pragma: no cover - guarded by config
             raise ValueError(f"unknown embedding_provider: {other!r}")
 

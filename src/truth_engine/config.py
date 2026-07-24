@@ -30,13 +30,21 @@ class Settings(BaseSettings):
         description="Async SQLAlchemy URL. Alembic derives the sync URL from this.",
     )
 
-    # --- Embedding provider (default: local sentence-transformers) ---
-    embedding_provider: str = Field(default="local", description="local | <future hosted>")
-    embedding_model: str = "BAAI/bge-base-en-v1.5"
+    # --- Embedding provider (default: local, Ollama-served nomic-embed-text) ---
+    # nomic-embed-text: 768-dim, natively 8192-token context (vs. bge-base's 512),
+    # which the doc-level summary embeddings feeding drift detection actually need.
+    embedding_provider: str = Field(
+        default="ollama",
+        description="ollama (local, no egress) | sentence_transformers (in-process HF)",
+    )
+    embedding_model: str = "nomic-embed-text"
     embedding_dim: int = Field(
         default=768,
         description="Vector dimension. Must match embedding_model and the pgvector column.",
     )
+    # Ollama caps nomic-embed-text at 2048 tokens by default even though the model
+    # supports 8192 — set this explicitly or long summaries get silently truncated.
+    embedding_num_ctx: int = 8192
 
     # --- LLM provider (default: local Ollama; no third-party egress) ---
     llm_provider: str = Field(default="ollama", description="ollama | anthropic")
