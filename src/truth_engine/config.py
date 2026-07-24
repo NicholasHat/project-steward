@@ -46,6 +46,20 @@ class Settings(BaseSettings):
     # supports 8192 — set this explicitly or long summaries get silently truncated.
     embedding_num_ctx: int = 8192
 
+    # --- Extract (step 3): spaCy NER + dateparser + rules, deterministic ---
+    # en_core_web_sm ships with `pipeline` and needs no extra download beyond
+    # `spacy download`; en_core_web_trf (transformer, higher quality) is a drop-in
+    # config swap but pulls torch and is much slower — opt in per-environment.
+    spacy_model: str = Field(
+        default="en_core_web_sm",
+        description="spaCy pipeline for NER. en_core_web_trf available for higher "
+        "quality at the cost of a torch dependency and slower inference.",
+    )
+    # Bounds spaCy's per-artifact cost on very large documents; raw_text beyond
+    # this is not scanned for entities/dates (still fully covered by doc-meta and
+    # filesystem signals).
+    extract_max_text_chars: int = 200_000
+
     # --- LLM provider (default: local Ollama; no third-party egress) ---
     llm_provider: str = Field(default="ollama", description="ollama | anthropic")
     llm_model: str = "llama3.1:8b"
