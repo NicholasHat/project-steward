@@ -143,6 +143,62 @@ class Settings(BaseSettings):
         "than persisted as low-confidence noise.",
     )
 
+    # --- Analysis: direction & drift (steps 8-9, Signal A + Signal B), PROJECTSPECS.md §3.4 ---
+    # Signal A (embedding cluster-drift): below this many doc-level embeddings,
+    # clustering a handful of docs is meaningless (HDBSCAN may call everything
+    # noise) -- degrade to an honest recency-only fallback instead of fabricating
+    # drift (Open Risk #4).
+    direction_min_corpus_size: int = Field(
+        default=6,
+        description="Below this many doc-level embeddings, skip HDBSCAN clustering entirely "
+        "and fall back to a conservative recency-only Signal A.",
+    )
+    direction_min_cluster_size: int = Field(
+        default=2, description="HDBSCAN min_cluster_size for the Signal A clustering pass."
+    )
+    # Shared "what counts as recent" anchor for both signals: a cluster/artifact/
+    # citation dated within this many days of the corpus's latest chosen date is
+    # part of the current-direction window.
+    direction_recency_window_days: int = Field(
+        default=90,
+        description="Days before the corpus's latest resolved date that still count as "
+        "'recent' -- defines the current-direction centroid (Signal A), a cluster going "
+        "'quiet', and citation-recency decay (Signal B).",
+    )
+    # Transparent combining-rule thresholds (documented, not learned) -- see
+    # analysis/direction.py module docstring for the full rule.
+    direction_current_threshold: float = Field(
+        default=0.6, description="Combined score >= this -> label current."
+    )
+    direction_superseded_threshold: float = Field(
+        default=0.4, description="Combined score <= this -> label superseded (drift)."
+    )
+    direction_min_confident_label: float = Field(
+        default=0.3,
+        description="Combined-signal confidence below this always labels unclear, regardless "
+        "of the score -- covers missing signals and signal_a/signal_b disagreement alike.",
+    )
+    direction_small_corpus_confidence_cap: float = Field(
+        default=0.35,
+        description="Confidence ceiling when Signal A is in the small-corpus recency-only "
+        "fallback. Combined with direction_min_confident_label, this also means 'superseded' "
+        "is never asserted below direction_min_corpus_size -- claiming a dead end from too "
+        "little data is a stronger, riskier claim than 'this still looks current'.",
+    )
+    direction_single_signal_availability: float = Field(
+        default=0.6,
+        description="Confidence multiplier applied when only one of signal_a/signal_b is "
+        "available for an artifact (the other has no data), vs. both agreeing.",
+    )
+    direction_snapshot_recent_artifacts: int = Field(
+        default=8,
+        description="Cap on recent-window artifacts fed to the DirectionSnapshot summary prompt.",
+    )
+    direction_summary_snippet_chars: int = Field(
+        default=200,
+        description="Leading raw_text snippet length per artifact in the summary prompt.",
+    )
+
     @property
     def sync_database_url(self) -> str:
         """Sync URL for Alembic (strips the +psycopg async marker is unnecessary;
