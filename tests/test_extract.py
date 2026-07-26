@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import uuid
+from collections.abc import Iterable
 from datetime import UTC, datetime
 
 from sqlalchemy import select
@@ -99,10 +100,19 @@ def _mentions(db_session: Session, artifact: Artifact) -> list[EntityMention]:
     )
 
 
-def _audits(db_session: Session, decision_type: str) -> list[DecisionAudit]:
+def _audits(
+    db_session: Session, decision_type: str, target_ids: Iterable[uuid.UUID]
+) -> list[DecisionAudit]:
+    """Audit rows of `decision_type` scoped to `target_ids` — the rows this test
+    created. DecisionAudit is a project-agnostic ledger keyed by `target_id`, so
+    scoping by the caller's own targets keeps assertions immune to pre-existing
+    rows in the shared dev DB (mirrors the codebase's owner-scoping invariant)."""
     return list(
         db_session.scalars(
-            select(DecisionAudit).where(DecisionAudit.decision_type == decision_type)
+            select(DecisionAudit).where(
+                DecisionAudit.decision_type == decision_type,
+                DecisionAudit.target_id.in_(list(target_ids)),
+            )
         ).all()
     )
 
@@ -373,7 +383,9 @@ def test_extract_artifact_anchors_relative_date_against_doc_meta(
     # anchored to the doc-meta created date (2024-03-20) -> "last week" = 2024-03-13
     assert chosen.candidate_date.date() == datetime(2024, 3, 13).date()
 
-    audit = _audits(db_session, "resolved_date")
+    audit = _audits(
+        db_session, "resolved_date", [r.id for r in _resolved_dates(db_session, artifact)]
+    )
     assert len(audit) == 1
     assert "anchored" in audit[0].rationale
 
@@ -390,11 +402,13 @@ def test_extract_artifact_writes_decision_audit_for_chosen_date_and_each_mention
     extract_artifact(db_session, artifact)
     db_session.commit()
 
-    date_audits = _audits(db_session, "resolved_date")
-    mention_audits = _audits(db_session, "entity_mention")
+    mentions = _mentions(db_session, artifact)
+    date_audits = _audits(
+        db_session, "resolved_date", [r.id for r in _resolved_dates(db_session, artifact)]
+    )
+    mention_audits = _audits(db_session, "entity_mention", [m.id for m in mentions])
     assert len(date_audits) == 1
     assert date_audits[0].actor.value == "system"
-    mentions = _mentions(db_session, artifact)
     assert len(mention_audits) == len(mentions) > 0
     assert {a.target_id for a in mention_audits} == {m.id for m in mentions}
 
@@ -412,7 +426,11 @@ def test_extract_artifact_normalizes_and_dedupes_entities_across_artifacts(
     extract_artifact(db_session, a2)
     db_session.commit()
 
-    people = db_session.scalars(select(Entity).where(Entity.type == EntityType.person)).all()
+    people = db_session.scalars(
+        select(Entity).where(
+            Entity.type == EntityType.person, Entity.project_id == project.id
+        )
+    ).all()
     assert len(people) == 1  # "Alice Smith" normalizes the same regardless of whitespace
     mentions = db_session.scalars(
         select(EntityMention).where(EntityMention.entity_id == people[0].id)
