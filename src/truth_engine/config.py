@@ -46,6 +46,27 @@ class Settings(BaseSettings):
     # supports 8192 — set this explicitly or long summaries get silently truncated.
     embedding_num_ctx: int = 8192
 
+    # --- Embed (step 5): deterministic chunking + chunk/doc embeddings ---
+    # Word-count based (not a real tokenizer) — a sensible target size without
+    # adding a tokenizer dependency to a deterministic stage; token_count on
+    # `Chunk` is likewise an estimate.
+    embed_chunk_size_words: int = Field(
+        default=400, description="Target chunk size in whitespace-delimited words."
+    )
+    embed_chunk_overlap_words: int = Field(
+        default=60, description="Word overlap between consecutive chunks, for context continuity."
+    )
+    # Deliberately conservative vs. embedding_num_ctx (8192 tokens): Ollama
+    # truncates silently past num_ctx rather than erroring, so a permissive
+    # threshold risks a valid-looking, silently-truncated doc vector. Budgets
+    # ~2 tokens/word (dense technical/chemistry text tokenizes sub-word more
+    # than everyday English) against ~70% of num_ctx, leaving headroom.
+    embed_doc_max_words: int = Field(
+        default=3_000,
+        description="Doc-level embedding uses the full raw_text only at/below this word count; "
+        "otherwise it mean-pools + renormalizes the chunk vectors instead.",
+    )
+
     # --- Extract (step 3): spaCy NER + dateparser + rules, deterministic ---
     # en_core_web_sm ships with `pipeline` and needs no extra download beyond
     # `spacy download`; en_core_web_trf (transformer, higher quality) is a drop-in

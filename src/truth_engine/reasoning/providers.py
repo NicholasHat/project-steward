@@ -6,7 +6,9 @@ deployment fully private:
   * LLMProvider       -> default OllamaProvider (local, no egress);
                          AnthropicProvider is an opt-in for when a small local
                          model isn't good enough (trades some privacy).
-  * EmbeddingProvider -> default LocalEmbeddingProvider (sentence-transformers).
+  * EmbeddingProvider -> default OllamaEmbeddingProvider (local nomic-embed-text,
+                         no egress); SentenceTransformersEmbeddingProvider is an
+                         in-process alternate for a CPU box that doesn't run Ollama.
 
 Heavy dependencies (sentence-transformers) are imported lazily so the API and
 migrations boot without the ML stack installed.
@@ -110,6 +112,15 @@ def get_llm_provider() -> LLMProvider:
 class EmbeddingProvider(ABC):
     model: str
     dim: int
+
+    @property
+    def model_version(self) -> str:
+        """Mirrors `LLMProvider.model_version`: the model name doubles as its
+        own version tag. Doesn't catch a same-named model upgraded in place
+        (e.g. a `nomic-embed-text` re-pull) — same documented limitation as
+        `extract.service`'s spaCy-model versioning; pin the model in the
+        deployment environment if this matters."""
+        return self.model
 
     @abstractmethod
     def embed(self, texts: list[str]) -> list[list[float]]:
