@@ -199,6 +199,85 @@ class Settings(BaseSettings):
         description="Leading raw_text snippet length per artifact in the summary prompt.",
     )
 
+    # --- Analysis: gap detection (step 10), PROJECTSPECS.md §3.5 ---
+    # Structural gaps (deterministic): a selected-template phase with fewer than
+    # this many distinctly-covered artifacts (auto or human PhaseAssignment
+    # alike -- a human correction counts as coverage too) is flagged. Zero
+    # coverage and "a few" are both gaps but distinguished by confidence below.
+    gap_structural_few_threshold: int = Field(
+        default=2,
+        description="A phase with fewer than this many mapped artifacts is flagged as a "
+        "structural gap ('few'); zero always qualifies regardless of this setting.",
+    )
+    gap_structural_confidence_zero: float = Field(
+        default=0.9, description="Gap.confidence for a phase with zero mapped artifacts."
+    )
+    gap_structural_confidence_few: float = Field(
+        default=0.7,
+        description="Gap.confidence for a phase with 1..gap_structural_few_threshold-1 mapped "
+        "artifacts -- still a structural gap, slightly less stark than zero coverage. Both "
+        "structural bands stay above every promised-unfulfilled band (see below), per "
+        "PROJECTSPECS.md §3.5's 'different confidence levels of gap'.",
+    )
+
+    # Promised-but-unfulfilled gaps (content-level). Candidate detection is
+    # deterministic marker matching; fulfillment judgment is fuzzy (a
+    # deterministic keyword-overlap fallback, optionally refined by a batched
+    # LLM pass) -- see analysis/gaps.py module docstring for the full rule.
+    gap_promised_evidence_radius: int = Field(
+        default=200,
+        description="Cap on chars of surrounding text captured on each side of a matched "
+        "promise marker if no sentence boundary is found sooner -- the marker's own "
+        "containing sentence(s) are preferred over this fixed radius when punctuation is "
+        "present (see analysis/gaps.py's `_sentence_span`).",
+    )
+    gap_promised_merge_gap_chars: int = Field(
+        default=20,
+        description="Two marker matches within this many characters of each other in the same "
+        "artifact are treated as one promise candidate, not two.",
+    )
+    gap_promised_fulfillment_token_overlap: float = Field(
+        default=0.6,
+        description="Deterministic fulfillment fallback: a promise is considered fulfilled by "
+        "a later artifact whose text contains at least this fraction of the promise's "
+        "significant (non-boilerplate) tokens.",
+    )
+    gap_promised_llm_enabled: bool = Field(
+        default=True,
+        description="Refine the deterministic fulfillment heuristic with a batched LLM "
+        "judgment pass. Disable for a fully deterministic (lower-recall, zero-LLM-cost) pass.",
+    )
+    gap_promised_batch_size: int = Field(
+        default=8, description="Promise candidates grouped per fulfillment-judgment LLM call."
+    )
+    gap_promised_later_artifacts_per_candidate: int = Field(
+        default=5,
+        description="Cap on candidate later-artifact excerpts shown to the LLM per promise, "
+        "ranked by chosen date (soonest-after first).",
+    )
+    gap_promised_snippet_chars: int = Field(
+        default=300,
+        description="Leading raw_text snippet length per later-artifact excerpt in the "
+        "fulfillment-judgment prompt.",
+    )
+    gap_promised_confidence_no_later_artifacts: float = Field(
+        default=0.55,
+        description="Gap.confidence when no later (or, absent a source date, no other) "
+        "artifact exists in the project at all to check -- the simplest, least ambiguous "
+        "'unfulfilled' case, but still below every structural band.",
+    )
+    gap_promised_confidence_deterministic: float = Field(
+        default=0.35,
+        description="Gap.confidence when only the deterministic token-overlap heuristic judged "
+        "the promise unfulfilled (LLM pass disabled, or its response was unusable).",
+    )
+    gap_promised_confidence_llm_cap: float = Field(
+        default=0.65,
+        description="Ceiling on Gap.confidence for an LLM-judged unfulfilled promise -- keeps "
+        "the entire promised-unfulfilled band below gap_structural_confidence_few, so the two "
+        "gap kinds never overlap in confidence.",
+    )
+
     @property
     def sync_database_url(self) -> str:
         """Sync URL for Alembic (strips the +psycopg async marker is unnecessary;
