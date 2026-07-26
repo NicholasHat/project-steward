@@ -489,6 +489,12 @@ class ViewProjection(Base):
     superseded_by: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("view_projection.id", ondelete="SET NULL")
     )
+    # Reuses AssignmentSource (auto/human), mirroring PhaseAssignment.source:
+    # regeneration wholesale-replaces only the current `auto` row for an
+    # artifact and never supersedes a `human` one — see analysis/view.py.
+    source: Mapped[AssignmentSource] = mapped_column(
+        Enum(AssignmentSource, native_enum=False, length=8), default=AssignmentSource.auto
+    )
     created_at: Mapped[datetime] = _ts()
 
 
