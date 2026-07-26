@@ -278,6 +278,49 @@ class Settings(BaseSettings):
         "gap kinds never overlap in confidence.",
     )
 
+    # --- Analysis: view/projection (step 11), PROJECTSPECS.md §3.6 ---
+    # Renaming suggestions are LLM-partial: a batched pass proposes a
+    # descriptive slug; a deterministic fallback (date + cleaned original
+    # filename + top entity) is always available and used when the pass is
+    # disabled or its output doesn't parse/validate.
+    view_llm_naming_enabled: bool = Field(
+        default=True,
+        description="Refine the deterministic name fallback with a batched LLM slug-suggestion "
+        "pass. Disable for a fully deterministic (zero-LLM-cost) naming pass.",
+    )
+    view_name_batch_size: int = Field(
+        default=5, description="Artifacts grouped per naming-suggestion LLM call."
+    )
+    view_name_snippet_chars: int = Field(
+        default=300,
+        description="Leading raw_text snippet length per artifact in the naming prompt.",
+    )
+    view_name_top_entities: int = Field(
+        default=3,
+        description="Top per-artifact entities (by mention count) surfaced in the naming prompt "
+        "and available to the deterministic fallback (which uses only the single top entity).",
+    )
+    view_name_max_length: int = Field(
+        default=80,
+        description="Hard cap on suggested_name length (date prefix + slug + extension). The "
+        "slug is trimmed to fit; the date prefix and extension are never truncated.",
+    )
+    view_name_min_slug_chars: int = Field(
+        default=3,
+        description="An LLM-proposed slug that normalizes to fewer than this many characters "
+        "is treated as junk and the deterministic fallback is used instead.",
+    )
+    view_generic_category: str = Field(
+        default="Uncategorized",
+        description="suggested_category for an artifact with no PhaseAssignment (unphased, or "
+        "phases hasn't run yet) — the domain-generic bucket §3.6 asks for.",
+    )
+    view_undated_folder: str = Field(
+        default="undated",
+        description="Date-folder segment (in virtual_path) and date prefix (in suggested_name) "
+        "used when an artifact has no chosen ResolvedDate.",
+    )
+
     @property
     def sync_database_url(self) -> str:
         """Sync URL for Alembic (strips the +psycopg async marker is unnecessary;
