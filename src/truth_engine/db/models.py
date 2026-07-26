@@ -403,6 +403,14 @@ class RelationshipEdge(Base):
 
 
 class DirectionSnapshot(Base):
+    """Append-only history, one row per full recompute — like `DecisionAudit`,
+    ordered by `computed_at` rather than updated in place; the latest row for
+    a project is simply the one with the max `computed_at`. Unlike
+    `DomainClassification` (single row per project, update-in-place), a
+    project can accumulate several snapshots over its life, which is useful
+    signal in its own right ("what did we believe the direction was, and
+    when did that change")."""
+
     __tablename__ = "direction_snapshots"
 
     id: Mapped[uuid.UUID] = _pk()
@@ -410,15 +418,26 @@ class DirectionSnapshot(Base):
         ForeignKey("projects.id", ondelete="CASCADE"), index=True
     )
     inferred_direction_summary: Mapped[str] = mapped_column(Text)
+    # Hash of the corpus fingerprint (doc embeddings + graph edges + chosen
+    # dates) this snapshot was computed from — mirrors
+    # `DomainClassification.corpus_fingerprint_hash`'s role: recompute (a new
+    # row) only if absent or the corpus changed since the latest snapshot,
+    # otherwise reuse it untouched with no LLM call.
+    corpus_fingerprint_hash: Mapped[str] = mapped_column(String(64))
     computed_at: Mapped[datetime] = _ts()
 
 
 class DirectionLabel(Base):
+    """One row per artifact (`artifact_id` unique) — like `DomainClassification`,
+    not like `PhaseAssignment`'s many-per-artifact: an artifact has exactly one
+    current direction verdict at a time, confirmable and never silently
+    replaced once confirmed."""
+
     __tablename__ = "direction_labels"
 
     id: Mapped[uuid.UUID] = _pk()
     artifact_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("artifacts.id", ondelete="CASCADE"), index=True
+        ForeignKey("artifacts.id", ondelete="CASCADE"), unique=True, index=True
     )
     label: Mapped[DirectionLabelValue] = mapped_column(
         Enum(DirectionLabelValue, native_enum=False, length=16)
