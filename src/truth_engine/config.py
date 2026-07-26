@@ -89,6 +89,40 @@ class Settings(BaseSettings):
     anthropic_api_key: str | None = None
     anthropic_model: str = "claude-sonnet-5"
 
+    # --- Analysis: Domain -> Phase (step 7), PROJECTSPECS.md §3.3 ---
+    # Below this, DomainClassification still records the LLM's honest best
+    # guess + confidence, but phase assignment maps artifacts against the
+    # "generic" template instead of forcing a possibly-wrong domain-specific
+    # one (§3.3.4 — never force a bad fit, but don't fake certainty either).
+    domain_confidence_threshold: float = Field(
+        default=0.5,
+        description="DomainClassification.confidence below this falls back to the generic "
+        "phase template for phase assignment.",
+    )
+    # Corpus-level fingerprint fed to the domain-classification prompt: cheap
+    # signals only (filenames, structure headings/titles, short excerpts,
+    # recurring entities) — never the raw corpus text.
+    domain_fingerprint_max_artifacts: int = Field(
+        default=40,
+        description="Cap on artifacts sampled into the domain-classification fingerprint.",
+    )
+    domain_fingerprint_snippet_chars: int = Field(
+        default=200, description="Leading raw_text snippet length per artifact in that fingerprint."
+    )
+    domain_fingerprint_max_entities: int = Field(
+        default=20,
+        description="Top recurring entities (by mention count) included in the fingerprint.",
+    )
+    # Per-artifact phase-assignment prompts: same "compact fingerprint, no
+    # raw-corpus dump" discipline, batched to bound total LLM call count.
+    phase_assignment_snippet_chars: int = Field(
+        default=500,
+        description="Leading raw_text snippet length per artifact in phase-assignment prompts.",
+    )
+    phase_assignment_batch_size: int = Field(
+        default=5, description="Artifacts grouped per phase-assignment LLM call."
+    )
+
     @property
     def sync_database_url(self) -> str:
         """Sync URL for Alembic (strips the +psycopg async marker is unnecessary;

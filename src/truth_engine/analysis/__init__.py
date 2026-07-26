@@ -11,5 +11,6 @@ LLM reasoning (via reasoning.providers) is used only for judgment calls here;
 the deterministic signals (dates, embeddings, graph edges) are computed first
 and are always inspectable.
 
-Pipeline logic is intentionally not implemented yet — this is scaffolding.
+timeline (6) and phases (7) are implemented; direction/drift (8-9) and gaps
+(10) are still scaffolding.
 """
