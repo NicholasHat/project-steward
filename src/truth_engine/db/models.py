@@ -115,6 +115,7 @@ class Stage(enum.StrEnum):
     embed = "embed"
     timeline = "timeline"
     phases = "phases"
+    graph = "graph"  # step 8, Signal B: citation/reference graph (analysis.graph)
     direction = "direction"
     gaps = "gaps"
     view = "view"

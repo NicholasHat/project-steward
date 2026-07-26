@@ -123,6 +123,26 @@ class Settings(BaseSettings):
         default=5, description="Artifacts grouped per phase-assignment LLM call."
     )
 
+    # --- Analysis: citation/reference graph (step 8, Signal B), PROJECTSPECS.md §3.4 ---
+    # Deterministic, precision-favoring per Open Risk #3 -- these knobs exist to keep
+    # short/generic strings from becoming false-positive match keys.
+    graph_min_match_key_chars: int = Field(
+        default=6,
+        description="Filenames/headings shorter than this are too generic to use as a "
+        "reference match key (e.g. 'a.txt', 'Notes') and are excluded from the index.",
+    )
+    graph_max_shared_entity_artifacts: int = Field(
+        default=4,
+        description="An entity mentioned across more than this many distinct artifacts is "
+        "treated as common/generic (e.g. a recurring collaborator or the project name) "
+        "rather than a distinctive cross-reference, and contributes no graph edges.",
+    )
+    graph_confidence_floor: float = Field(
+        default=0.5,
+        description="Candidate relationship edges below this confidence are dropped rather "
+        "than persisted as low-confidence noise.",
+    )
+
     @property
     def sync_database_url(self) -> str:
         """Sync URL for Alembic (strips the +psycopg async marker is unnecessary;
