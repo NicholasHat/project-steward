@@ -355,6 +355,12 @@ class DomainClassification(Base):
     confidence: Mapped[float] = mapped_column(Float)
     model: Mapped[str | None] = mapped_column(String(128))
     confirmed_by_user: Mapped[bool] = mapped_column(default=False)
+    # Hash of the corpus-level fingerprint (filenames/headings/snippets/top
+    # entities) the classification was computed from — this table has one
+    # row per project (no per-artifact StageState to key off of), so the
+    # idempotency check ("recompute if absent or the corpus changed, but
+    # never clobber confirmed_by_user") lives directly on the row instead.
+    corpus_fingerprint_hash: Mapped[str] = mapped_column(String(64))
     created_at: Mapped[datetime] = _ts()
 
 
