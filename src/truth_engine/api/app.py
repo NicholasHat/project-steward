@@ -3,17 +3,27 @@
 Wires auth routes (register + JWT login), a health check, and the data +
 human-action routers that expose the pipeline's outputs to the dashboard
 (PROJECTSPECS.md §2 step 13): artifact browser, timeline, direction/drift,
-gaps, phases/domain, and report — see `api/routers/*.py`. Upload and
-pipeline-run orchestration over HTTP are out of scope for this increment; the
-CLIs (`uv run python -m truth_engine.<stage>`) run the pipeline, and these
-routers read/act on what it produced.
+gaps, phases/domain, and report — see `api/routers/*.py`. `pipeline.router`
+adds the upload/run/status surface (`api/routers/pipeline.py`) that lets a
+user drive ingestion and the full pipeline over HTTP instead of only via the
+CLIs (`uv run python -m truth_engine.<stage>`), which remain useful for
+scripting/dev but are no longer the only way in.
 """
 
 from __future__ import annotations
 
 from fastapi import Depends, FastAPI
 
-from truth_engine.api.routers import artifacts, direction, gaps, phases, projects, report, timeline
+from truth_engine.api.routers import (
+    artifacts,
+    direction,
+    gaps,
+    phases,
+    pipeline,
+    projects,
+    report,
+    timeline,
+)
 from truth_engine.auth.schemas import UserCreate, UserRead
 from truth_engine.auth.users import auth_backend, current_active_user, fastapi_users
 from truth_engine.config import get_settings
@@ -39,6 +49,7 @@ def create_app() -> FastAPI:
         gaps.router,
         phases.router,
         report.router,
+        pipeline.router,
     ):
         app.include_router(router)
 

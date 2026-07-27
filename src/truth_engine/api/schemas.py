@@ -21,7 +21,9 @@ from truth_engine.db.models import (
     EntityType,
     GapStatus,
     GapType,
+    PipelineRunStatus,
     ProcessingState,
+    Stage,
 )
 
 
@@ -239,6 +241,42 @@ class PhasesOverviewDTO(BaseModel):
 
 class DomainPatchRequest(BaseModel):
     domain: str | None = None
+
+
+# --------------------------------------------------------------------------- #
+# Pipeline: upload / run / status                                            #
+# --------------------------------------------------------------------------- #
+class UploadedFileDTO(BaseModel):
+    filename: str
+    size_bytes: int
+
+
+class UploadResponse(BaseModel):
+    root_path: str
+    files: list[UploadedFileDTO]
+
+
+class RunResponse(BaseModel):
+    run_id: uuid.UUID
+    status: PipelineRunStatus
+
+
+class StageProgressDTO(BaseModel):
+    stage: Stage
+    total: int
+    done: int
+    error: int
+    pending: int
+
+
+class ProjectStatusDTO(BaseModel):
+    state: PipelineRunStatus
+    run_id: uuid.UUID | None
+    current_stage: Stage | None
+    error: str | None
+    started_at: datetime | None
+    finished_at: datetime | None
+    stages: list[StageProgressDTO]
 
 
 # --------------------------------------------------------------------------- #

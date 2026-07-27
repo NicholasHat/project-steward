@@ -13,11 +13,17 @@ Two layers, composed:
     three, never queries `Project`/`Artifact`/`Gap` directly — this is the
     single place the multi-tenant invariant (CLAUDE.md) is enforced, so a new
     router can't accidentally skip it.
+  * `SyncSessionFactoryDep` — a *factory* for a brand-new sync `Session`,
+    used only by `api/routers/pipeline.py`'s background job, which must run
+    against its own session rather than the request-scoped `SyncSessionDep`
+    (see `db/session.py`'s module docstring for why the two must never mix).
 """
 
 from __future__ import annotations
 
 import uuid
+from collections.abc import Callable
+from contextlib import AbstractContextManager
 from typing import Annotated
 
 from fastapi import Depends, HTTPException, status
@@ -26,10 +32,53 @@ from sqlalchemy.orm import Session
 
 from truth_engine.auth.users import current_active_user
 from truth_engine.db.models import Artifact, Gap, Project, User
-from truth_engine.db.session import get_sync_session
+from truth_engine.db.session import get_sync_session, get_sync_sessionmaker
+from truth_engine.reasoning.providers import EmbeddingProvider, LLMProvider
 
 SyncSessionDep = Annotated[Session, Depends(get_sync_session)]
 CurrentUser = Annotated[User, Depends(current_active_user)]
+
+
+def get_sync_session_factory() -> Callable[[], AbstractContextManager[Session]]:
+    """Factory for a **new**, independently owned sync `Session` per call.
+
+    Calling the returned factory yields a context manager that closes the
+    session on `__exit__`; production returns `get_sync_sessionmaker()`
+    itself — a SQLAlchemy `Session` already supports the context-manager
+    protocol, so `sessionmaker()` needs no wrapping. Tests override this
+    dependency to bind the background job to the test's own transactional
+    session instead of opening a new connection to the real database (a
+    genuinely new connection can't see another connection's uncommitted
+    transaction, which is how `tests/conftest.py`'s `db_session` fixture
+    isolates every test).
+    """
+    return get_sync_sessionmaker()
+
+
+SyncSessionFactoryDep = Annotated[
+    Callable[[], AbstractContextManager[Session]], Depends(get_sync_session_factory)
+]
+
+
+def get_pipeline_llm_provider() -> LLMProvider | None:
+    """`None` in production — each pipeline stage resolves its own default
+    (the real Ollama/Anthropic-backed provider, per `Settings`). Tests
+    override this dependency to inject one hermetic fake for the *whole*
+    `POST /projects/{id}/run` background job, mirroring how
+    `run_project_phases`/`run_project_view`/etc. already accept an optional
+    `provider` for the same reason at the stage level."""
+    return None
+
+
+def get_pipeline_embedding_provider() -> EmbeddingProvider | None:
+    """`None` in production — see `get_pipeline_llm_provider`."""
+    return None
+
+
+PipelineLLMProviderDep = Annotated[LLMProvider | None, Depends(get_pipeline_llm_provider)]
+PipelineEmbeddingProviderDep = Annotated[
+    EmbeddingProvider | None, Depends(get_pipeline_embedding_provider)
+]
 
 
 def get_owned_project(

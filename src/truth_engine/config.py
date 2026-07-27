@@ -30,6 +30,21 @@ class Settings(BaseSettings):
         description="Async SQLAlchemy URL. Alembic derives the sync URL from this.",
     )
 
+    # --- Uploaded artifact storage (api/routers/pipeline.py) ---
+    # `./data` for bare local dev; docker-compose.yml mounts the `artifacts`
+    # volume at `/data` and sets TRUTH_DATA_ROOT=/data for the containerized app.
+    # Files land at `{data_root}/{project_id}/` -- these are the sacrosanct
+    # originals (PROJECTSPECS.md §3.1); nothing downstream ever writes here.
+    data_root: str = Field(
+        default="./data", description="Root directory for per-project uploaded originals."
+    )
+    upload_max_files: int = Field(
+        default=200, description="Max files accepted in a single upload call."
+    )
+    upload_max_file_bytes: int = Field(
+        default=100_000_000, description="Max size of a single uploaded file, in bytes."
+    )
+
     # --- Embedding provider (default: local, Ollama-served nomic-embed-text) ---
     # nomic-embed-text: 768-dim, natively 8192-token context (vs. bge-base's 512),
     # which the doc-level summary embeddings feeding drift detection actually need.
