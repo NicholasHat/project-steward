@@ -503,6 +503,8 @@ def _write_projection(
     model: str | None,
     model_version: str | None,
     rationale: str,
+    source: AssignmentSource = AssignmentSource.auto,
+    actor: AuditActor = AuditActor.system,
 ) -> ViewProjection:
     new_version = ViewProjection(
         artifact_id=artifact_id,
@@ -510,7 +512,7 @@ def _write_projection(
         suggested_category=suggested_category,
         virtual_path=virtual_path,
         version=(current.version + 1) if current is not None else 1,
-        source=AssignmentSource.auto,
+        source=source,
     )
     session.add(new_version)
     session.flush()  # populate new_version.id, both as the audit target and for superseded_by
@@ -534,13 +536,51 @@ def _write_projection(
                 "suggested_category": suggested_category,
                 "virtual_path": virtual_path,
             },
-            actor=AuditActor.system,
+            actor=actor,
             model=model,
             model_version=model_version,
             rationale=rationale,
         )
     )
     return new_version
+
+
+def apply_human_name_override(
+    session: Session, artifact: Artifact, suggested_name: str, *, rationale: str
+) -> ViewProjection:
+    """Dashboard entry point for `PUT .../artifacts/{id}/name` (PROJECTSPECS.md
+    §3.6's human confirmation over the suggested name). Creates a new
+    `source=human` `ViewProjection` version via the exact same version-chain
+    mechanics (`_write_projection`) `run_project_view` uses for its own `auto`
+    rows — the prior current row is superseded, `current_projection()`
+    immediately reflects the override, and the next `run_project_view` call
+    skips this artifact entirely (see module docstring, "Human overrides").
+    `suggested_category`/`virtual_path` are recomputed around the *existing*
+    category (or the generic bucket, if none) and the artifact's chosen date,
+    never guessed anew — only the name itself is the human's decision here.
+    """
+    settings = get_settings()
+    current = current_projection(session, artifact.id)
+    category = current.suggested_category if current is not None else settings.view_generic_category
+    chosen_date = session.scalar(
+        select(ResolvedDate.candidate_date).where(
+            ResolvedDate.artifact_id == artifact.id, ResolvedDate.is_chosen.is_(True)
+        )
+    )
+    virtual_path = _virtual_path(category, chosen_date, suggested_name, settings)
+    return _write_projection(
+        session,
+        artifact.id,
+        current,
+        suggested_name=suggested_name,
+        suggested_category=category,
+        virtual_path=virtual_path,
+        model=None,
+        model_version=None,
+        rationale=rationale,
+        source=AssignmentSource.human,
+        actor=AuditActor.user,
+    )
 
 
 # --------------------------------------------------------------------------- #
