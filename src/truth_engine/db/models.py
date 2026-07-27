@@ -26,11 +26,13 @@ from sqlalchemy import (
     Enum,
     Float,
     ForeignKey,
+    Index,
     Integer,
     String,
     Text,
     UniqueConstraint,
     func,
+    text,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -573,3 +575,52 @@ class StageState(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
+
+
+class PipelineRunStatus(enum.StrEnum):
+    idle = "idle"  # never persisted -- only ProjectStatusDTO.state when no run row exists yet
+    running = "running"
+    done = "done"
+    error = "error"
+
+
+class PipelineRun(Base):
+    """One row per `POST /projects/{id}/run` attempt (`api/routers/pipeline.py`)
+    -- the run-tracking counterpart to per-artifact `StageState`: this answers
+    "is a pipeline running for this project right now, and how far did it
+    get," not "is this artifact's data current" (that's still `StageState`).
+    `run_project_pipeline` itself (`truth_engine/pipeline.py`) knows nothing
+    of this table -- it's purely how the HTTP layer exposes run/status.
+
+    A partial unique index (`ix_pipeline_run_one_running_per_project`) enforces
+    at most one `running` row per project at the database level -- the real
+    concurrent-run guard; the route's own pre-check query is just the
+    friendly-error fast path for the common case.
+    """
+
+    __tablename__ = "pipeline_run"
+    __table_args__ = (
+        Index(
+            "ix_pipeline_run_one_running_per_project",
+            "project_id",
+            unique=True,
+            postgresql_where=text("status = 'running'"),
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = _pk()
+    project_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("projects.id", ondelete="CASCADE"), index=True
+    )
+    status: Mapped[PipelineRunStatus] = mapped_column(
+        Enum(PipelineRunStatus, native_enum=False, length=16), default=PipelineRunStatus.running
+    )
+    current_stage: Mapped[Stage | None] = mapped_column(Enum(Stage, native_enum=False, length=16))
+    error: Mapped[str | None] = mapped_column(Text)
+    # clock_timestamp() (real time of the INSERT), not now()/transaction_timestamp:
+    # the status endpoint orders by started_at to find the latest run, so two runs
+    # created in one transaction must get distinct timestamps (now() would tie them).
+    started_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.clock_timestamp()
+    )
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
