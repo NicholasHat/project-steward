@@ -499,6 +499,13 @@ class ViewProjection(Base):
 
 
 class Report(Base):
+    """The self-updating project report (step 12) — versioned, composed of
+    independently-fingerprinted sections. "The report" = the row with
+    `is_current=True`; regeneration inserts a new version and flips the
+    prior current row's `is_current` to False, mirroring `ViewProjection`'s
+    version-chain reversibility intent (full history retained, nothing
+    deleted)."""
+
     __tablename__ = "reports"
 
     id: Mapped[uuid.UUID] = _pk()
@@ -506,7 +513,22 @@ class Report(Base):
         ForeignKey("projects.id", ondelete="CASCADE"), index=True
     )
     version: Mapped[int] = mapped_column(Integer, default=1)
-    content: Mapped[str] = mapped_column(Text)
+    content: Mapped[str] = mapped_column(Text)  # rendered Markdown, composed from `sections`
+    # Per-section {content, fingerprint, model, model_version, rationale} --
+    # the incremental-regeneration mechanism (see analysis/report.py module
+    # docstring). A section whose own fingerprint is unchanged from the prior
+    # version is carried into the new version's `sections` entry verbatim
+    # instead of being recomputed -- in particular, the LLM-synthesized
+    # current-direction section is not re-invoked unless its own inputs
+    # (the direction snapshot, or the current-labeled artifact set) changed.
+    # This is what makes PROJECTSPECS.md §3.7/§3.8's "feel real rather than
+    # batch-y" promise concrete rather than aspirational.
+    sections: Mapped[dict] = mapped_column(JSONB, default=dict)
+    # Hash of the union of every section's own fingerprint -- mirrors
+    # DirectionSnapshot/DomainClassification's corpus_fingerprint_hash role:
+    # unchanged since the current version -> the entire regeneration is a
+    # true no-op (no new version, no section recompute, no LLM call at all).
+    corpus_fingerprint_hash: Mapped[str] = mapped_column(String(64))
     generated_at: Mapped[datetime] = _ts()
     is_current: Mapped[bool] = mapped_column(default=True)
 
