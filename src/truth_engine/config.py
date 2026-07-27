@@ -321,6 +321,36 @@ class Settings(BaseSettings):
         "used when an artifact has no chosen ResolvedDate.",
     )
 
+    # --- Analysis: self-updating report (step 12), PROJECTSPECS.md §3.7-3.8 ---
+    # Recent activity is deterministic (placement TimelineEvents), capped for
+    # readability; the current-direction narrative is the one LLM-partial
+    # section, refining DirectionSnapshot.inferred_direction_summary + the
+    # current-labeled artifact set into report-voice prose -- see
+    # analysis/report.py module docstring for the full section/fingerprint
+    # design.
+    report_recent_activity_count: int = Field(
+        default=10,
+        description="Most recent placement TimelineEvents surfaced in the report's Recent "
+        "Activity section.",
+    )
+    report_llm_direction_enabled: bool = Field(
+        default=True,
+        description="Synthesize the Current Direction section's narrative with an LLM call over "
+        "DirectionSnapshot.inferred_direction_summary + current-labeled artifacts. Disable for a "
+        "fully deterministic (zero-LLM-cost) report -- the section still renders the direction "
+        "snapshot's own narrative directly.",
+    )
+    report_direction_max_current_artifacts: int = Field(
+        default=8,
+        description="Cap on current-labeled artifacts (most-recently-dated first) fed to the "
+        "Current Direction synthesis prompt and listed in that section.",
+    )
+    report_direction_snippet_chars: int = Field(
+        default=200,
+        description="Leading raw_text snippet length per current artifact in the Current "
+        "Direction synthesis prompt.",
+    )
+
     @property
     def sync_database_url(self) -> str:
         """Sync URL for Alembic (strips the +psycopg async marker is unnecessary;
