@@ -44,6 +44,9 @@ jobs:
       - name: Apply migrations
         run: uv run alembic upgrade head
 
+      - name: Seed phase templates
+        run: uv run python -m truth_engine.db.seed
+
       - name: Test
         run: uv run pytest -q
 

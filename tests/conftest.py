@@ -21,6 +21,16 @@ from sqlalchemy.orm import Session
 
 from truth_engine.config import get_settings
 from truth_engine.db.models import Project, User
+from truth_engine.db.seed import seed
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _seed_reference_data() -> None:
+    """Phase templates are reference data the analysis stages look up by domain
+    (phases, gaps, view all read them). Seed once per session so the suite is
+    self-contained on any migrated database, rather than silently depending on
+    a hand-seeded dev DB. Idempotent."""
+    seed()
 
 
 @pytest.fixture
