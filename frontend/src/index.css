@@ -1,0 +1,86 @@
+@import 'tailwindcss';
+@plugin 'tailwindcss-animate';
+@plugin '@tailwindcss/typography';
+
+@import '@fontsource-variable/inter';
+@import '@fontsource-variable/jetbrains-mono';
+
+/* ------------------------------------------------------------------ */
+/* Design tokens — the single source of truth for the visual system.   */
+/* Light mode only, one deliberate accent ("signal", a blue-violet),   */
+/* plus two semantic families reserved for direction/confidence state: */
+/* "drift" (warm, muted — superseded/vision-drift) and the neutral     */
+/* zinc scale Tailwind ships already (used for "unclear"/structural).  */
+/* ------------------------------------------------------------------ */
+@theme {
+  --font-sans: 'InterVariable', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono Variable', ui-monospace, 'SF Mono', monospace;
+
+  /* Signal — the one accent. Used deliberately: primary actions, the
+     "current direction" state, focus rings, active nav. Not decoration. */
+  --color-signal-50: #eef1ff;
+  --color-signal-100: #e0e4fe;
+  --color-signal-200: #c7cffd;
+  --color-signal-300: #a3aefa;
+  --color-signal-400: #7a86f5;
+  --color-signal-500: #5661ee;
+  --color-signal-600: #3d46e0;
+  --color-signal-700: #2f35c0;
+  --color-signal-800: #282d9b;
+  --color-signal-900: #23287c;
+  --color-signal-950: #171a4d;
+
+  /* Drift — warm, muted amber. Reserved for "superseded / vision drift":
+     never used for destructive/error states, so it never gets confused
+     with a failure. Broken promises + drifted direction live here. */
+  --color-drift-50: #fdf6ec;
+  --color-drift-100: #fbead2;
+  --color-drift-200: #f5d2a3;
+  --color-drift-300: #edb36d;
+  --color-drift-400: #e2913f;
+  --color-drift-500: #c97324;
+  --color-drift-600: #a85a18;
+  --color-drift-700: #874614;
+
+  --shadow-card: 0 1px 2px 0 rgb(24 24 27 / 0.04), 0 1px 6px -2px rgb(24 24 27 / 0.06);
+  --shadow-card-hover: 0 4px 12px -2px rgb(24 24 27 / 0.08), 0 2px 6px -2px rgb(24 24 27 / 0.06);
+  --shadow-popover: 0 12px 32px -8px rgb(24 24 27 / 0.16), 0 4px 12px -4px rgb(24 24 27 / 0.08);
+
+  /* Motion — one shared language across every Framer Motion usage. */
+  --ease-out-signal: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out-signal: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@layer base {
+  * {
+    border-color: theme(--color-zinc-200);
+  }
+
+  html {
+    color-scheme: light;
+  }
+
+  body {
+    @apply bg-zinc-50 text-zinc-800 antialiased;
+    font-feature-settings: 'cv11', 'ss01';
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  ::selection {
+    background: var(--color-signal-200);
+    color: var(--color-signal-900);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-signal-500);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+}
+
+@layer utilities {
+  .font-tabular {
+    font-variant-numeric: tabular-nums;
+  }
+}
