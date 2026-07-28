@@ -6,7 +6,7 @@
 
 Point it at a messy folder of project files (PDFs, spreadsheets, notes, slide decks, images) and it reconstructs the project: what happened, in what order, what's missing, and where the project's direction has drifted from where it started.
 
-<!-- TODO: demo GIF — upload -> run -> timeline/direction/report -->
+![The self-updating report Truth Engine builds from a raw folder of research files](docs/img/report.png)
 
 ## What it does
 
@@ -15,6 +15,20 @@ Point it at a messy folder of project files (PDFs, spreadsheets, notes, slide de
 - **Direction and drift** — each artifact is labeled `current`, `superseded`, or `unclear`, with a rationale you can open and inspect.
 
 It runs an 11-stage pipeline end to end: ingest, parse, extract, embed, timeline, phases, graph, direction, gaps, view, report. A React dashboard drives it over an HTTP API, or you can run each stage from the CLI.
+
+## Screenshots
+
+The pipeline and the direction/drift view, from the sample run above:
+
+| Pipeline run | Direction & drift |
+|---|---|
+| [![Pipeline run](docs/img/pipeline.png)](docs/img/pipeline.png) | [![Direction and drift](docs/img/direction.png)](docs/img/direction.png) |
+| Every stage, with an unsupported file skipped (not failed). | Per-artifact `current`/`superseded`/`unclear`, two signals, human confirm/override. |
+
+| Timeline | Artifacts |
+|---|---|
+| [![Timeline](docs/img/timeline.png)](docs/img/timeline.png) | [![Artifacts](docs/img/artifacts.png)](docs/img/artifacts.png) |
+| Reconstructed chronology, confidence and source per date. | One index over every file, with suggested names and dates. |
 
 ## Design invariants
 
