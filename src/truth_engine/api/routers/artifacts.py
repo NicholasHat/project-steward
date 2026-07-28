@@ -48,6 +48,8 @@ from truth_engine.db.models import (
     PhaseTemplate,
     RelationshipEdge,
     ResolvedDate,
+    StageState,
+    StageStatus,
     ViewProjection,
 )
 
@@ -127,6 +129,20 @@ def get_artifact(artifact: ArtifactDep, session: SyncSessionDep) -> ArtifactDeta
     )
     projection = current_projection(session, artifact.id)
     label = session.scalar(select(DirectionLabel).where(DirectionLabel.artifact_id == artifact.id))
+
+    # Why this artifact wasn't fully processed, if applicable: the parse-stage
+    # note for an unsupported format (skipped) or an error message from a failed
+    # stage. 'error' sorts before 'skipped', so a real failure wins over a skip.
+    processing_note = session.scalar(
+        select(StageState.error)
+        .where(
+            StageState.artifact_id == artifact.id,
+            StageState.status.in_([StageStatus.error, StageStatus.skipped]),
+            StageState.error.is_not(None),
+        )
+        .order_by(StageState.status)
+        .limit(1)
+    )
 
     phase_rows = session.execute(
         select(PhaseAssignment, PhaseTemplate.phase_name)
@@ -214,6 +230,7 @@ def get_artifact(artifact: ArtifactDep, session: SyncSessionDep) -> ArtifactDeta
         direction=direction_label_dto(label, clean_name(artifact, projection)) if label else None,
         phases=phases,
         current_path=artifact.current_path,
+        processing_note=processing_note,
         size_bytes=artifact.size_bytes,
         fs_created=artifact.fs_created,
         fs_modified=artifact.fs_modified,

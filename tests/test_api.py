@@ -57,6 +57,9 @@ from truth_engine.db.models import (
     RelationshipEdge,
     Report,
     ResolvedDate,
+    Stage,
+    StageState,
+    StageStatus,
     TimelineEvent,
     User,
     ViewProjection,
@@ -304,6 +307,34 @@ def test_artifact_detail_includes_entities_dates_and_edges(
     assert body["resolved_dates"][0]["is_chosen"] is True
     assert body["edges"][0]["direction"] == "outgoing"
     assert body["edges"][0]["other_artifact_id"] == str(other.id)
+
+
+def test_artifact_detail_surfaces_processing_note_for_unsupported(
+    client: TestClient, db_session: Session, project: Project
+) -> None:
+    artifact = _make_artifact(db_session, project, filename="clip.mov")
+    db_session.add(
+        StageState(
+            artifact_id=artifact.id,
+            stage=Stage.parse,
+            status=StageStatus.skipped,
+            input_hash="h",
+            error="no parser for 'mov' — file retained, not analyzed",
+        )
+    )
+    db_session.commit()
+
+    body = client.get(f"/projects/{project.id}/artifacts/{artifact.id}").json()
+    assert "no parser for 'mov'" in body["processing_note"]
+
+
+def test_artifact_detail_has_no_processing_note_when_fully_processed(
+    client: TestClient, db_session: Session, project: Project
+) -> None:
+    artifact = _make_artifact(db_session, project)
+    db_session.commit()
+    body = client.get(f"/projects/{project.id}/artifacts/{artifact.id}").json()
+    assert body["processing_note"] is None
 
 
 def test_artifact_browser_pagination_slices_items_but_reports_full_total(

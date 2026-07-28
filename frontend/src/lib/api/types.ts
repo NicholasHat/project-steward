@@ -144,6 +144,7 @@ export interface RelationshipEdgeDTO {
 
 export interface ArtifactDetailDTO extends ArtifactSummaryDTO {
   current_path: string
+  processing_note: string | null
   size_bytes: number
   fs_created: string | null
   fs_modified: string | null

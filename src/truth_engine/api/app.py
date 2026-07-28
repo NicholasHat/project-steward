@@ -12,8 +12,14 @@ scripting/dev but are no longer the only way in.
 
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+from datetime import UTC, datetime
+
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import select
+from sqlalchemy.orm import Session
 
 from truth_engine.api.routers import (
     artifacts,
@@ -28,12 +34,45 @@ from truth_engine.api.routers import (
 from truth_engine.auth.schemas import UserCreate, UserRead
 from truth_engine.auth.users import auth_backend, current_active_user, fastapi_users
 from truth_engine.config import get_settings
-from truth_engine.db.models import User
+from truth_engine.db.models import PipelineRun, PipelineRunStatus, User
+from truth_engine.db.session import get_sync_sessionmaker
+
+
+def reconcile_orphaned_runs(session: Session) -> int:
+    """Mark any run still `running` as errored, returning how many were swept.
+
+    A pipeline run is in-process (`api/routers/pipeline.py`): it's tied to the
+    worker that started it, with no heartbeat or cross-process resumption. So
+    on a fresh process start, anything still `running` in the table can't
+    actually be running -- the worker that owned it is gone -- and would
+    otherwise sit at `running` forever, blocking new runs via the one-running-
+    per-project index. This assumes a single app process (which the deploy
+    uses); with multiple workers a run another worker just started could be
+    swept, so a real fix here is a job queue with heartbeats.
+    """
+    orphaned = session.scalars(
+        select(PipelineRun).where(PipelineRun.status == PipelineRunStatus.running)
+    ).all()
+    now = datetime.now(UTC)
+    for run in orphaned:
+        run.status = PipelineRunStatus.error
+        run.error = "run interrupted by a server restart"
+        run.current_stage = None
+        run.finished_at = now
+    session.commit()
+    return len(orphaned)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    with get_sync_sessionmaker()() as session:
+        reconcile_orphaned_runs(session)
+    yield
 
 
 def create_app() -> FastAPI:
     settings = get_settings()
-    app = FastAPI(title=settings.app_name, version="0.0.1")
+    app = FastAPI(title=settings.app_name, version="0.0.1", lifespan=lifespan)
 
     app.add_middleware(
         CORSMiddleware,

@@ -4,8 +4,12 @@ from __future__ import annotations
 
 from functools import lru_cache
 
-from pydantic import Field
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# The shipped placeholder secret. Safe in dev; a hard error in production
+# (see Settings._enforce_production_safety).
+DEFAULT_SECRET_KEY = "change-me-in-production"
 
 
 class Settings(BaseSettings):
@@ -19,8 +23,15 @@ class Settings(BaseSettings):
     # --- Core ---
     app_name: str = "Project Truth Engine"
     debug: bool = False
+    # "development" (default) keeps the app booting out of the box with the
+    # placeholder secret. Set TRUTH_ENVIRONMENT=production (the deploy does) to
+    # turn missing prod-required settings into a hard startup error instead of
+    # a silent insecure default.
+    environment: str = Field(
+        default="development", description="development | production"
+    )
     secret_key: str = Field(
-        default="change-me-in-production",
+        default=DEFAULT_SECRET_KEY,
         description="Signing key for auth tokens. MUST be overridden in production.",
     )
 
@@ -419,6 +430,23 @@ class Settings(BaseSettings):
         """Sync URL for Alembic (strips the +psycopg async marker is unnecessary;
         psycopg 3 is used for both sync and async)."""
         return self.database_url
+
+    @model_validator(mode="after")
+    def _enforce_production_safety(self) -> Settings:
+        """Fail fast on insecure defaults when running in production, rather
+        than booting with the placeholder secret. Dev/test/CI (the default
+        environment) are unaffected."""
+        if self.environment == "production":
+            problems: list[str] = []
+            if self.secret_key == DEFAULT_SECRET_KEY:
+                problems.append("TRUTH_SECRET_KEY is still the shipped placeholder")
+            if self.llm_provider == "anthropic" and not self.anthropic_api_key:
+                problems.append("TRUTH_LLM_PROVIDER=anthropic but TRUTH_ANTHROPIC_API_KEY is unset")
+            if problems:
+                raise ValueError(
+                    "insecure/incomplete production config: " + "; ".join(problems)
+                )
+        return self
 
 
 @lru_cache

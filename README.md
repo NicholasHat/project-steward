@@ -101,7 +101,7 @@ So the production choice is per-environment:
 
 ## Roadmap and known limitations
 
-- **Pipeline runs are in-process** (FastAPI `BackgroundTasks`), so a worker crash mid-run leaves that run marked `running`. A startup reconciliation sweep and a real job queue are the planned fix.
+- **Pipeline runs are in-process** (FastAPI `BackgroundTasks`). A worker crash mid-run leaves an orphaned `running` row; a startup sweep reconciles those to `error` on the next boot. A real job queue (heartbeats, cross-process resumption) is the next upgrade.
 - **Phase assignment uses an LLM**, so which phase an artifact lands in can vary run to run. The domain classification and structural gaps are deterministic.
 - **NER runs on `en_core_web_sm`** by default. `en_core_web_trf` is a config swap (`TRUTH_SPACY_MODEL`) that improves entity quality at the cost of a torch dependency and slower inference — better as a production profile.
 - **Unsupported formats** (e.g. video) are retained and dated on the timeline but not analyzed.

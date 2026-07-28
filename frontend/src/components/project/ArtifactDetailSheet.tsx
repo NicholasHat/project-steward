@@ -182,6 +182,11 @@ export function ArtifactDetailSheet({
                   <dt className="text-zinc-400">Processing state</dt>
                   <dd className="text-zinc-700 capitalize">{artifact.processing_state}</dd>
                 </dl>
+                {artifact.processing_note && (
+                  <p className="mt-3 rounded-md bg-amber-50 px-3 py-2 text-[13px] text-amber-700">
+                    {artifact.processing_note}
+                  </p>
+                )}
               </section>
 
               {/* Resolved dates (all signals, not just chosen) */}

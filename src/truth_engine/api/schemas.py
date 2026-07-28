@@ -142,6 +142,9 @@ class RelationshipEdgeDTO(BaseModel):
 
 class ArtifactDetailDTO(ArtifactSummaryDTO):
     current_path: str
+    # Why an artifact wasn't fully processed, if applicable: the parse-stage
+    # note for an unsupported format, or the error message for a failed stage.
+    processing_note: str | None = None
     size_bytes: int
     fs_created: datetime | None
     fs_modified: datetime | None

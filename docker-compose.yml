@@ -35,6 +35,11 @@ services:
   api:
     build: .
     env_file: .env
+    # The deploy is production by definition: this turns a missing/placeholder
+    # TRUTH_SECRET_KEY into a hard startup failure instead of an insecure boot
+    # (see truth_engine.config.Settings._enforce_production_safety).
+    environment:
+      TRUTH_ENVIRONMENT: production
     depends_on:
       db:
         condition: service_healthy
