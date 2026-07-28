@@ -887,6 +887,11 @@ def run_project_report(
 
     result.report = report
     result.is_new_version = True
+    # Self-commit, like the other analysis stages (direction/phases/gaps/view).
+    # Report was the one stage that left this to the caller, so a standalone
+    # run_project_pipeline() (not the API path, which commits afterward) would
+    # silently drop the report.
+    session.commit()
     return result
 
 
