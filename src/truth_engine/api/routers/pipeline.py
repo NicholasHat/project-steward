@@ -277,13 +277,15 @@ def get_status(project: ProjectDep, session: SyncSessionDep) -> ProjectStatusDTO
             continue
         done = counts[stage].get(StageStatus.done, 0)
         error = counts[stage].get(StageStatus.error, 0)
+        skipped = counts[stage].get(StageStatus.skipped, 0)
         stages.append(
             StageProgressDTO(
                 stage=stage,
                 total=artifact_count,
                 done=done,
                 error=error,
-                pending=max(0, artifact_count - done - error),
+                skipped=skipped,
+                pending=max(0, artifact_count - done - error - skipped),
             )
         )
 

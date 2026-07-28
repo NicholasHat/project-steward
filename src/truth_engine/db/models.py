@@ -52,6 +52,7 @@ class ProcessingState(enum.StrEnum):
     extracted = "extracted"
     embedded = "embedded"
     analyzed = "analyzed"
+    unsupported = "unsupported"  # no parser for this format; file retained, not analyzed
     error = "error"
 
 
@@ -128,6 +129,7 @@ class StageStatus(enum.StrEnum):
     pending = "pending"
     running = "running"
     done = "done"
+    skipped = "skipped"  # benign, settled: nothing to do (e.g. unsupported format), not a failure
     error = "error"
 
 
@@ -156,7 +158,14 @@ class Project(Base):
     root_path: Mapped[str] = mapped_column(Text)
     created_at: Mapped[datetime] = _ts()
 
-    artifacts: Mapped[list[Artifact]] = relationship(back_populates="project")
+    # `passive_deletes=True` defers to the DB's `ON DELETE CASCADE` (every FK
+    # into projects already declares it) instead of the ORM's default, which
+    # would try to NULL out `Artifact.project_id` on `session.delete(project)`
+    # — a NOT NULL violation that made deleting any non-empty project 500.
+    # `cascade` must include delete for `passive_deletes` to take effect.
+    artifacts: Mapped[list[Artifact]] = relationship(
+        back_populates="project", cascade="all, delete-orphan", passive_deletes=True
+    )
 
 
 class Artifact(Base):

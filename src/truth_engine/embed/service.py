@@ -132,7 +132,10 @@ def embed_artifact(
     state.status = StageStatus.done
     state.error = None
 
-    artifact.processing_state = ProcessingState.embedded
+    # `unsupported` is terminal (see extract.service) — don't overwrite it with
+    # a lifecycle rung; a zero-content artifact produced no embeddings anyway.
+    if artifact.processing_state != ProcessingState.unsupported:
+        artifact.processing_state = ProcessingState.embedded
     return True
 
 

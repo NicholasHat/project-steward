@@ -7,9 +7,14 @@ bytes change (a new Artifact row entirely, per the ingest identity rule),
 "unchanged input" here really means "already parsed this exact artifact" —
 re-running parse over an untouched project is a pure no-op.
 
-A failure on one artifact (encrypted PDF, malformed Office file, unsupported
-format) is recorded on that artifact's StageState and does not abort the
-batch — this mirrors ingest's per-file error isolation.
+A *failure* on one artifact (encrypted PDF, malformed Office file) is recorded
+as `StageStatus.error` on that artifact's StageState and does not abort the
+batch — this mirrors ingest's per-file error isolation. An *unsupported format*
+(a video, an archive — no registered handler) is not a failure: the original is
+retained untouched and the artifact is recorded as `StageStatus.skipped` /
+`ProcessingState.unsupported`, so the dashboard shows it as "retained, not
+analyzed" rather than a scary red error. Downstream stages still see it as a
+zero-content artifact (it gets a filesystem-dated timeline entry, no text).
 
 No `DecisionAudit` rows: parsing deterministically re-expresses a file's own
 bytes as structured data: it infers nothing. Audit begins at extract (dates/
@@ -42,6 +47,7 @@ from truth_engine.parse.registry import UnsupportedFormatError, get_handler
 class ParseResult:
     parsed: int = 0
     skipped: int = 0
+    unsupported: list[tuple[Artifact, str]] = field(default_factory=list)
     errors: list[tuple[Artifact, str]] = field(default_factory=list)
 
 
@@ -57,7 +63,13 @@ def parse_artifact(session: Session, artifact: Artifact) -> bool:
     Raises on handler failure — callers isolate per-artifact errors.
     """
     state = _stage_state(session, artifact.id, Stage.parse)
-    if state and state.status == StageStatus.done and state.input_hash == artifact.content_hash:
+    if (
+        state
+        and state.input_hash == artifact.content_hash
+        and state.status in (StageStatus.done, StageStatus.skipped)
+    ):
+        # `skipped` (unsupported format) is a settled outcome too: don't re-run
+        # the handler lookup for a format we already know has no parser.
         return False
 
     doc = get_handler(artifact.file_type)(Path(artifact.current_path))
@@ -110,8 +122,9 @@ def parse_project(session: Session, project_id: uuid.UUID) -> ParseResult:
         try:
             changed = parse_artifact(session, artifact)
         except UnsupportedFormatError:
-            _record_error(session, artifact, f"unsupported format: {artifact.file_type!r}")
-            result.errors.append((artifact, f"unsupported format: {artifact.file_type!r}"))
+            message = f"no parser for {artifact.file_type!r} — file retained, not analyzed"
+            _record_unsupported(session, artifact, message)
+            result.unsupported.append((artifact, message))
             continue
         except Exception as exc:  # noqa: BLE001 - isolate one bad file from the batch
             _record_error(session, artifact, str(exc))
@@ -136,4 +149,23 @@ def _record_error(session: Session, artifact: Artifact, message: str) -> None:
     state.status = StageStatus.error
     state.error = message[:2000]
     artifact.processing_state = ProcessingState.error
+    session.commit()
+
+
+def _record_unsupported(session: Session, artifact: Artifact, message: str) -> None:
+    """An unsupported format is a benign, settled outcome — recorded as
+    `skipped` (not `error`) with an informational `message`. The file is kept
+    exactly as ingested; nothing was parsed because nothing could be."""
+    session.rollback()
+    state = _stage_state(session, artifact.id, Stage.parse)
+    if state is None:
+        state = StageState(
+            artifact_id=artifact.id, stage=Stage.parse, input_hash=artifact.content_hash
+        )
+        session.add(state)
+    else:
+        state.input_hash = artifact.content_hash
+    state.status = StageStatus.skipped
+    state.error = message[:2000]  # the only text slot; disambiguated by status=skipped
+    artifact.processing_state = ProcessingState.unsupported
     session.commit()

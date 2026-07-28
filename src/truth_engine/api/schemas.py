@@ -267,6 +267,8 @@ class StageProgressDTO(BaseModel):
     done: int
     error: int
     pending: int
+    # benign, settled (e.g. unsupported format) — counts toward complete, not failed
+    skipped: int = 0
 
 
 class ProjectStatusDTO(BaseModel):

@@ -205,6 +205,18 @@ def test_content_candidates_relative_date_anchored_and_lower_confidence() -> Non
     assert candidate.confidence < 0.8  # relative dates are less trusted than explicit ones
 
 
+def test_content_candidates_drops_implausible_year_but_keeps_real_one() -> None:
+    # spaCy tags the bare "5090" in "Nvidia 5090" as a DATE; without the
+    # plausibility clamp it becomes a max-trust content date of year 5090 and,
+    # as the corpus's latest date, poisons every downstream recency window.
+    text = "The Nvidia 5090 was released. The study ran in 2011."
+    doc = get_nlp()(text)
+    candidates = content_candidates(text, doc, anchor=None, min_year=1970, max_year=2100)
+    years = {c.candidate_date.year for c in candidates}
+    assert 5090 not in years  # implausible model number, dropped
+    assert 2011 in years  # the genuine in-text year survives
+
+
 def test_content_candidates_empty_without_text() -> None:
     assert content_candidates(None, None, anchor=None) == []
 
@@ -454,6 +466,23 @@ def test_extract_artifact_no_content_falls_back_to_filesystem_only(
     assert all(r.signal_source == DateSignalSource.filesystem for r in resolved)
     assert sum(r.is_chosen for r in resolved) == 1
     assert _mentions(db_session, artifact) == []
+
+
+def test_extract_preserves_unsupported_processing_state(
+    db_session: Session, project: Project
+) -> None:
+    # An unsupported artifact still flows through extract (to get a filesystem
+    # date for the timeline), but `unsupported` is terminal — extract must not
+    # relabel it as `extracted`.
+    artifact = _make_artifact(db_session, project, fs_created=UTC_2024_01_01)
+    artifact.processing_state = ProcessingState.unsupported
+    db_session.commit()
+
+    extract_artifact(db_session, artifact)
+    db_session.commit()
+
+    assert _resolved_dates(db_session, artifact)  # still dated (filesystem)
+    assert artifact.processing_state == ProcessingState.unsupported
 
 
 # --------------------------------------------------------------------------- #

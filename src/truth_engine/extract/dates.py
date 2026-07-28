@@ -58,6 +58,12 @@ _DOC_META_MODIFIED_CONFIDENCE = 0.55
 _FS_CREATED_CONFIDENCE = 0.35
 _FS_MODIFIED_CONFIDENCE = 0.25
 
+# Defaults mirror Settings.extract_min_year / extract_max_year — the extract
+# service always passes the configured values; these keep direct callers (and
+# tests) working without wiring config through. See content_candidates.
+_DEFAULT_MIN_YEAR = 1970
+_DEFAULT_MAX_YEAR = 2100
+
 _SIGNAL_RANK = {
     DateSignalSource.content: 3,
     DateSignalSource.doc_meta: 2,
@@ -216,11 +222,24 @@ def _parse_pdf_date(match: re.Match[str]) -> datetime | None:
 # Signal 1 — content-embedded dates (highest trust)                           #
 # --------------------------------------------------------------------------- #
 def content_candidates(
-    raw_text: str | None, spacy_doc: object, anchor: datetime | None
+    raw_text: str | None,
+    spacy_doc: object,
+    anchor: datetime | None,
+    *,
+    min_year: int = _DEFAULT_MIN_YEAR,
+    max_year: int = _DEFAULT_MAX_YEAR,
 ) -> list[DateCandidate]:
     """Resolve every spaCy DATE entity in `raw_text` via `dateparser`,
     anchoring relative references ("last week") against `anchor`. spaCy finds
     *where* a date-like phrase is; dateparser decides *what date it means*.
+
+    Content dates whose year falls outside `[min_year, max_year]` are dropped
+    as parsing artifacts: spaCy tags any bare 4-digit token as a DATE, so a
+    product/model number ("Nvidia 5090"), an address, or a large quantity
+    would otherwise become a max-trust content date — and, as the corpus's
+    latest date, poison every recency-window comparison downstream. Only this
+    highest-trust *content* signal is clamped; doc-meta/filesystem timestamps
+    are real dates by construction.
 
     Two spaCy quirks get cleaned up before handing the span to dateparser
     (both confirmed empirically against `en_core_web_sm`, not theoretical):
@@ -244,11 +263,14 @@ def content_candidates(
 
         year_match = _BARE_YEAR_RE.match(cleaned)
         if year_match:
+            year = int(cleaned)
+            if not (min_year <= year <= max_year):
+                continue  # a model/part number or quantity, not a year
             # A bare year ("2022") has no day/month — filling those from the
             # anchor would fabricate precision that was never in the text.
             candidates.append(
                 DateCandidate(
-                    candidate_date=datetime(int(cleaned), 1, 1, tzinfo=UTC),
+                    candidate_date=datetime(year, 1, 1, tzinfo=UTC),
                     signal_source=DateSignalSource.content,
                     confidence=_CONTENT_YEAR_ONLY_CONFIDENCE,
                     evidence_text=evidence,
@@ -265,6 +287,8 @@ def content_candidates(
         if parsed is None:
             continue
         parsed_utc = parsed.replace(tzinfo=UTC) if parsed.tzinfo is None else parsed.astimezone(UTC)
+        if not (min_year <= parsed_utc.year <= max_year):
+            continue  # implausible year — a parsing artifact, not a real date
 
         candidates.append(
             DateCandidate(

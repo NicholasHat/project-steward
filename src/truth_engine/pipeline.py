@@ -109,16 +109,17 @@ def _summarize(result: object) -> str:
     result in this pipeline already *is* a dataclass of counts plus an
     `errors` list (`ParseResult`, `EmbedResult`, `GraphResult`, ...) -- one
     generic renderer covers all eleven instead of a bespoke formatter per
-    stage. Non-scalar fields (a `DirectionSnapshot`/`Report` row, a list of
-    changed section names) are skipped; they're not needed for a progress
-    line and the dataclasses that carry them expose the interesting counts
-    as scalar fields alongside them."""
+    stage. List fields (`errors`, `unsupported`, changed section names) render
+    as their length; other non-scalar fields (a `DirectionSnapshot`/`Report`
+    row) are skipped — they're not needed for a progress line and the
+    dataclasses that carry them expose the interesting counts as scalar (or
+    list-length) fields alongside them."""
     if not is_dataclass(result):
         return str(result)
     parts = []
     for key, value in vars(result).items():
-        if key == "errors":
-            value = len(value)
+        if isinstance(value, list):
+            value = len(value)  # errors / unsupported / changed-section lists -> their count
         elif not isinstance(value, int | float | str | bool | type(None)):
             continue
         parts.append(f"{key}={value}")

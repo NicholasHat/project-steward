@@ -30,6 +30,17 @@ class Settings(BaseSettings):
         description="Async SQLAlchemy URL. Alembic derives the sync URL from this.",
     )
 
+    # --- CORS (api/app.py) ---
+    # Origins allowed to call the API with credentials (Bearer tokens, not
+    # cookies, but the browser still enforces CORS on the Authorization
+    # header + fetch). Vite's dev server default port is included so the
+    # frontend/ dashboard works out of the box in local dev; override with a
+    # comma-separated list in production.
+    cors_origins: list[str] = Field(
+        default=["http://localhost:5173", "http://127.0.0.1:5173"],
+        description="Allowed CORS origins for the dashboard frontend.",
+    )
+
     # --- Uploaded artifact storage (api/routers/pipeline.py) ---
     # `./data` for bare local dev; docker-compose.yml mounts the `artifacts`
     # volume at `/data` and sets TRUTH_DATA_ROOT=/data for the containerized app.
@@ -43,6 +54,26 @@ class Settings(BaseSettings):
     )
     upload_max_file_bytes: int = Field(
         default=100_000_000, description="Max size of a single uploaded file, in bytes."
+    )
+
+    # --- Parse (step 2): spreadsheet/table -> text projection ---
+    # xlsx/csv keep their lossless content in `StructuredTable`, but every
+    # analysis stage (embed, NER, date resolution, phase, direction/drift)
+    # keys off `raw_text` — a table with `raw_text=None` is invisible to all
+    # of them, which for a spreadsheet-heavy corpus means most of the project
+    # never reaches the dashboard. The spreadsheet handlers synthesize a
+    # compact textual projection (filename + sheet names + column headers + a
+    # bounded row sample) as `raw_text` so tables participate in analysis like
+    # prose documents; the `StructuredTable` rows remain the lossless record.
+    parse_table_text_max_rows_per_table: int = Field(
+        default=50,
+        description="Max data rows per sheet/table sampled into the synthesized text projection. "
+        "A representative sample carries the file's topic (for clustering/phase assignment) "
+        "without embedding thousands of numeric cells.",
+    )
+    parse_table_text_max_chars: int = Field(
+        default=20_000,
+        description="Hard cap on the synthesized table-text projection length, in characters.",
     )
 
     # --- Embedding provider (default: local, Ollama-served nomic-embed-text) ---
@@ -95,6 +126,23 @@ class Settings(BaseSettings):
     # this is not scanned for entities/dates (still fully covered by doc-meta and
     # filesystem signals).
     extract_max_text_chars: int = 200_000
+    # Plausibility bounds on *content-derived* dates (spaCy DATE + dateparser).
+    # spaCy tags bare 4-digit tokens as DATE regardless of meaning, so a product
+    # or model number ("Nvidia 5090"), an address, or a large quantity becomes a
+    # year — and, as a max-trust content signal, wins the chosen date. A single
+    # such artifact dated year 5090 then becomes the corpus's "latest" date and
+    # poisons every recency-window comparison downstream (timeline span,
+    # direction/drift). A content date outside this range is treated as a parsing
+    # artifact and dropped; doc-meta/filesystem timestamps (real dates by
+    # construction) are never clamped. 2100 is a fixed, deterministic ceiling —
+    # a genuine research-timeline date past it is not a case worth admitting the
+    # false positives for.
+    extract_min_year: int = Field(
+        default=1970, description="Content dates before this year are dropped as parsing artifacts."
+    )
+    extract_max_year: int = Field(
+        default=2100, description="Content dates after this year are dropped as parsing artifacts."
+    )
 
     # --- LLM provider (default: local Ollama; no third-party egress) ---
     llm_provider: str = Field(default="ollama", description="ollama | anthropic")

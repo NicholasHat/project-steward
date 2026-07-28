@@ -103,7 +103,13 @@ def extract_artifact(session: Session, artifact: Artifact) -> bool:
     if raw_text:
         spacy_doc = get_nlp()(raw_text[: settings.extract_max_text_chars])
 
-    content_candidates = dates.content_candidates(raw_text, spacy_doc, anchor)
+    content_candidates = dates.content_candidates(
+        raw_text,
+        spacy_doc,
+        anchor,
+        min_year=settings.extract_min_year,
+        max_year=settings.extract_max_year,
+    )
     all_candidates = fs_candidates + meta_candidates + content_candidates
     chosen = dates.choose(all_candidates)
 
@@ -118,7 +124,12 @@ def extract_artifact(session: Session, artifact: Artifact) -> bool:
     state.status = StageStatus.done
     state.error = None
 
-    artifact.processing_state = ProcessingState.extracted
+    # `unsupported` is terminal — an unsupported artifact still flows through
+    # here (it gets a filesystem-dated ResolvedDate so it appears on the
+    # timeline), but its classification must not be overwritten with a
+    # lifecycle rung that implies content was processed.
+    if artifact.processing_state != ProcessingState.unsupported:
+        artifact.processing_state = ProcessingState.extracted
     return True
 
 
