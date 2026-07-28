@@ -417,8 +417,10 @@ def test_promise_gap_pruned_when_later_fulfillment_appears_writes_audit(
 
     audits = _audits(db_session, "gap_promised_unfulfilled", gap_id)
     assert len(audits) == 2  # one for creation, one for the prune
-    prune_audit = audits[-1]
-    assert prune_audit.new_value is None
+    # Identify the prune audit by its defining property (new_value is None for a
+    # disappearance), not list position: both audits share a created_at inside
+    # the test's single savepoint transaction, so `_audits` has no stable order.
+    prune_audit = next(a for a in audits if a.new_value is None)
     assert prune_audit.old_value is not None
     assert prune_audit.model == gaps_module._PROMISE_RULESET
     assert prune_audit.rationale
