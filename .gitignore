@@ -13,3 +13,6 @@ __pycache__/
 # Local data
 /data/
 *.sqlite
+
+# macOS
+.DS_Store
