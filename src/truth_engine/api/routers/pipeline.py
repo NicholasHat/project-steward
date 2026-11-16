@@ -24,9 +24,10 @@ concurrent `POST .../run` calls.
 never the request's session, see `db/session.py`'s module docstring), so
 `POST .../run` returns 202 immediately instead of blocking on minutes of
 embedding/LLM calls. This is in-process, not a real queue: a run is tied to
-the worker process that started it, so a process crash mid-run silently
-orphans that run's row at `status=running` forever (no heartbeat, no
-retry, no cross-process resumption). The concurrent-run guard itself *is*
+the worker process that started it, so a process crash mid-run orphans that
+run's row at `status=running` until the next startup, when
+`api.app.reconcile_orphaned_runs` marks it `error` (no heartbeat, no retry,
+no cross-process resumption). The concurrent-run guard itself *is*
 correct even across multiple worker processes (it's a database constraint,
 not an in-memory lock) -- it's only run *durability* that's the MVP
 limitation. A real queue (RQ/Redis, the plan's documented v1 upgrade) is
