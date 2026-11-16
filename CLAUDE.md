@@ -87,8 +87,9 @@ audit/versioning, *and* embeddings (`db.models.Embedding.vector`). No separate v
 - DB enums are `enum.StrEnum` stored as `Enum(..., native_enum=False)` (VARCHAR + CHECK),
   for painless migrations.
 - Heavy ML/parsing deps live in the `pipeline` optional group so the API and migrations
-  boot without them; import them lazily inside the modules that need them (see
-  `LocalEmbeddingProvider`).
+  boot without them; import them lazily inside the modules that need them. torch-based
+  `sentence-transformers` is split out again into the `local-embeddings` extra (the Docker
+  image skips it); see `SentenceTransformersEmbeddingProvider`.
 
 ## Gotchas
 

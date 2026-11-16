@@ -1189,6 +1189,9 @@ dev = [
     { name = "pytest-asyncio" },
     { name = "ruff" },
 ]
+local-embeddings = [
+    { name = "sentence-transformers" },
+]
 pipeline = [
     { name = "dateparser" },
     { name = "exifread" },
@@ -1200,7 +1203,6 @@ pipeline = [
     { name = "python-docx" },
     { name = "python-pptx" },
     { name = "scikit-learn" },
-    { name = "sentence-transformers" },
     { name = "spacy" },
 ]
 
@@ -1229,12 +1231,12 @@ requires-dist = [
     { name = "python-pptx", marker = "extra == 'pipeline'", specifier = ">=1.0" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.8" },
     { name = "scikit-learn", marker = "extra == 'pipeline'", specifier = ">=1.5" },
-    { name = "sentence-transformers", marker = "extra == 'pipeline'", specifier = ">=3.3" },
+    { name = "sentence-transformers", marker = "extra == 'local-embeddings'", specifier = ">=3.3" },
     { name = "spacy", marker = "extra == 'pipeline'", specifier = ">=3.8" },
     { name = "sqlalchemy", extras = ["asyncio"], specifier = ">=2.0.36" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.32" },
 ]
-provides-extras = ["pipeline", "dev"]
+provides-extras = ["pipeline", "local-embeddings", "dev"]
 
 [[package]]
 name = "psycopg"

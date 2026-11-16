@@ -106,6 +106,7 @@ So the production choice is per-environment:
 - **Pipeline runs are in-process** (FastAPI `BackgroundTasks`). A worker crash mid-run leaves an orphaned `running` row; a startup sweep reconciles those to `error` on the next boot. A real job queue (heartbeats, cross-process resumption) is the next upgrade.
 - **Phase assignment uses an LLM**, so which phase an artifact lands in can vary run to run. The domain classification and structural gaps are deterministic.
 - **NER runs on `en_core_web_sm`** by default. `en_core_web_trf` is a config swap (`TRUTH_SPACY_MODEL`) that improves entity quality at the cost of a torch dependency and slower inference — better as a production profile.
+- **Embeddings come from Ollama** by default. `TRUTH_EMBEDDING_PROVIDER=sentence_transformers` runs a Hugging Face model in-process instead, but pulls in torch (several GB with CUDA wheels), so it lives in its own extra: `uv sync --extra local-embeddings`. The Docker image leaves it out.
 - **Unsupported formats** (e.g. video) are retained and dated on the timeline but not analyzed.
 
 ## Docs

@@ -37,9 +37,13 @@ pipeline = [
     "exifread>=3.0",
     "spacy>=3.8",
     "dateparser>=1.2",
-    "sentence-transformers>=3.3",
     "scikit-learn>=1.5",
     "hdbscan>=0.8.40",
+]
+# Alternate in-process embedding provider (TRUTH_EMBEDDING_PROVIDER=sentence_transformers).
+# Split out because it drags in torch (+ CUDA wheels on Linux, several GB).
+local-embeddings = [
+    "sentence-transformers>=3.3",
 ]
 dev = [
     "pytest>=8.3",

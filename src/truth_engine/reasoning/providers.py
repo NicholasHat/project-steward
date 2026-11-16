@@ -10,8 +10,8 @@ deployment fully private:
                          no egress); SentenceTransformersEmbeddingProvider is an
                          in-process alternate for a CPU box that doesn't run Ollama.
 
-Heavy dependencies (sentence-transformers) are imported lazily so the API and
-migrations boot without the ML stack installed.
+Heavy dependencies (sentence-transformers, the optional `local-embeddings` extra)
+are imported lazily so the API and migrations boot without the ML stack installed.
 """
 
 from __future__ import annotations
@@ -171,7 +171,14 @@ class SentenceTransformersEmbeddingProvider(EmbeddingProvider):
 
     def _ensure_loaded(self) -> None:
         if self._st is None:
-            from sentence_transformers import SentenceTransformer  # lazy: pipeline extra
+            try:
+                from sentence_transformers import SentenceTransformer  # lazy: heavy (torch)
+            except ImportError as exc:
+                raise RuntimeError(
+                    "TRUTH_EMBEDDING_PROVIDER=sentence_transformers needs the optional "
+                    "`local-embeddings` extra: run `uv sync --extra local-embeddings` "
+                    "(or set TRUTH_EMBEDDING_PROVIDER=ollama)."
+                ) from exc
 
             self._st = SentenceTransformer(self.model, trust_remote_code=True)
             self._st.max_seq_length = self._num_ctx

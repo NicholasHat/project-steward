@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import math
+import sys
 import uuid
 
 import pytest
@@ -24,7 +25,10 @@ from truth_engine.db.models import (
 )
 from truth_engine.embed.chunker import chunk_words
 from truth_engine.embed.service import embed_artifact, embed_project
-from truth_engine.reasoning.providers import EmbeddingProvider
+from truth_engine.reasoning.providers import (
+    EmbeddingProvider,
+    SentenceTransformersEmbeddingProvider,
+)
 
 
 # --------------------------------------------------------------------------- #
@@ -434,3 +438,14 @@ def test_embed_project_records_error_without_aborting_batch(
     assert state.status == StageStatus.error
     assert state.error
     assert failed_artifact.processing_state == ProcessingState.error
+
+
+def test_sentence_transformers_provider_explains_missing_extra(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # A None entry in sys.modules makes `import sentence_transformers` raise ImportError,
+    # whether or not the optional extra is installed.
+    monkeypatch.setitem(sys.modules, "sentence_transformers", None)
+    provider = SentenceTransformersEmbeddingProvider("some/model", 768, 512)
+    with pytest.raises(RuntimeError, match="uv sync --extra local-embeddings"):
+        provider.embed(["hello"])
