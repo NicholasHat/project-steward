@@ -36,6 +36,9 @@ pipeline = [
     "Pillow>=11",
     "exifread>=3.0",
     "spacy>=3.8",
+    # NER model for the extract stage, pinned to the spaCy 3.8 line so a plain
+    # `uv sync --extra pipeline` installs it (it is not on PyPI).
+    "en-core-web-sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl",
     "dateparser>=1.2",
     "scikit-learn>=1.5",
     "hdbscan>=0.8.40",
@@ -55,6 +58,10 @@ dev = [
 [build-system]
 requires = ["hatchling>=1.27"]
 build-backend = "hatchling.build"
+
+[tool.hatch.metadata]
+# The spaCy model is a direct URL dependency (not on PyPI).
+allow-direct-references = true
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/truth_engine"]

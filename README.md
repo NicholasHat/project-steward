@@ -50,7 +50,7 @@ One store: Postgres + pgvector holds structured data, the relationship graph, au
 Backend:
 
 ```bash
-uv sync --extra dev                 # venv + core + dev deps (add --extra pipeline for parsing/ML)
+uv sync --extra dev                 # venv + core + dev deps (add --extra pipeline for parsing/ML, which includes the spaCy model)
 docker compose up -d db             # Postgres + pgvector on localhost:5433
 cp .env.example .env                # set TRUTH_DATABASE_URL host to localhost:5433
 uv run alembic upgrade head         # apply schema (also creates the vector extension)
@@ -64,11 +64,10 @@ Frontend:
 cd frontend && npm install && npm run dev   # http://localhost:5173
 ```
 
-Tests and lint (the suite exercises the parsers and NER, so it needs the `pipeline` extra and the spaCy model, as in CI):
+Tests and lint (the suite exercises the parsers and NER, so it needs the `pipeline` extra, which includes the spaCy model, as in CI):
 
 ```bash
 uv sync --extra dev --extra pipeline
-uv run python -m spacy download en_core_web_sm   # not in the lockfile: re-run after a plain `uv sync`
 uv run ruff check src alembic tests
 uv run pytest                       # runs against the migrated dev DB, each test rolled back
 ```

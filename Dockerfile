@@ -20,11 +20,11 @@ ENV UV_COMPILE_BYTECODE=1 \
 WORKDIR /app
 
 # Locked deps first (cached) using only the manifest + lockfile. The API runs
-# the pipeline in-process, so it needs the `pipeline` extra too.
+# the pipeline in-process, so it needs the `pipeline` extra too (which also
+# carries the spaCy NER model). The torch-based `local-embeddings` extra is left
+# out: embeddings default to Ollama.
 COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-dev --extra pipeline --no-install-project
-# NER model for the extract stage (spaCy installs it via uv; the venv has no pip).
-RUN python -m spacy download en_core_web_sm
 
 # App source.
 COPY README.md alembic.ini ./

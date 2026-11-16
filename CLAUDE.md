@@ -18,8 +18,7 @@ URL when running tools against it:
 ```bash
 export TRUTH_DATABASE_URL="postgresql+psycopg://steward:steward@localhost:5433/steward"
 
-uv sync --extra dev --extra pipeline   # venv + core + dev + parsing/ML deps
-uv run python -m spacy download en_core_web_sm   # NER model; not in the lockfile
+uv sync --extra dev --extra pipeline   # venv + core + dev + parsing/ML deps (incl. the spaCy model)
 docker compose up -d db             # Postgres + pgvector on localhost:5433
 uv run alembic upgrade head         # apply schema (also CREATE EXTENSION vector)
 uv run python -m truth_engine.db.seed   # idempotent phase-template seed

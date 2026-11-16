@@ -428,6 +428,14 @@ wheels = [
 ]
 
 [[package]]
+name = "en-core-web-sm"
+version = "3.8.0"
+source = { url = "https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl" }
+wheels = [
+    { url = "https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl", hash = "sha256:1932429db727d4bff3deed6b34cfc05df17794f4a52eeb26cf8928f7c1a0fb85" },
+]
+
+[[package]]
 name = "et-xmlfile"
 version = "2.0.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1194,6 +1202,7 @@ local-embeddings = [
 ]
 pipeline = [
     { name = "dateparser" },
+    { name = "en-core-web-sm" },
     { name = "exifread" },
     { name = "hdbscan" },
     { name = "openpyxl" },
@@ -1210,6 +1219,7 @@ pipeline = [
 requires-dist = [
     { name = "alembic", specifier = ">=1.14" },
     { name = "dateparser", marker = "extra == 'pipeline'", specifier = ">=1.2" },
+    { name = "en-core-web-sm", marker = "extra == 'pipeline'", url = "https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl" },
     { name = "exifread", marker = "extra == 'pipeline'", specifier = ">=3.0" },
     { name = "fastapi", specifier = ">=0.115" },
     { name = "fastapi-users", extras = ["sqlalchemy"], specifier = ">=14" },
