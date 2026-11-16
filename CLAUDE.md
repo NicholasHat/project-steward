@@ -7,8 +7,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 Project Truth Engine ingests a messy folder of project artifacts and reconstructs a
 trustworthy, self-updating picture of a project (timeline, gaps, current-vs-drifted
 direction). The product spec is [`PROJECTSPECS.md`](PROJECTSPECS.md); read it for the
-"why". This repo is currently the **scaffold** — schema, API/auth skeleton, provider
-adapters, and deploy tooling — with the processing pipeline still to be built on top.
+"why". The full 11-stage pipeline (`truth_engine.pipeline`), the HTTP API, and the React
+dashboard (`frontend/`) are implemented; see the README's roadmap for known limitations.
 
 ## Commands
 
@@ -18,13 +18,14 @@ URL when running tools against it:
 ```bash
 export TRUTH_DATABASE_URL="postgresql+psycopg://steward:steward@localhost:5433/steward"
 
-uv sync --extra dev                 # venv + core + dev deps (add --extra pipeline for ML/parsing)
+uv sync --extra dev --extra pipeline   # venv + core + dev + parsing/ML deps
+uv run python -m spacy download en_core_web_sm   # NER model; not in the lockfile
 docker compose up -d db             # Postgres + pgvector on localhost:5433
 uv run alembic upgrade head         # apply schema (also CREATE EXTENSION vector)
 uv run python -m truth_engine.db.seed   # idempotent phase-template seed
 uv run uvicorn truth_engine.api.app:app --reload   # http://localhost:8000
 
-uv run ruff check src alembic       # lint (must pass)
+uv run ruff check src alembic tests # lint (must pass)
 uv run pytest                       # tests
 ```
 
@@ -43,7 +44,6 @@ PROJECTSPECS.md §2:
 | `ingest` | 1 discover/hash/dedupe, stable IDs | deterministic |
 | `parse` | 2 per-format extraction | deterministic |
 | `extract` | 3 NER + confidence-scored dates + tables | deterministic |
-| `store` | 4 persistence over `db.models` | deterministic |
 | `embed` | 5 chunk + doc embeddings | local model |
 | `analysis` | 6–10 timeline, phases, direction/drift, gaps | signals + **LLM judgment** |
 | `reasoning` | provider adapters (LLM + embeddings) | — |
