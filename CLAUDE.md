@@ -25,6 +25,7 @@ uv run python -m truth_engine.db.seed   # idempotent phase-template seed
 uv run uvicorn truth_engine.api.app:app --reload   # http://localhost:8000
 
 uv run ruff check src alembic tests # lint (must pass)
+uv run mypy                         # strict type check of src/ (must pass)
 uv run pytest                       # tests
 ```
 

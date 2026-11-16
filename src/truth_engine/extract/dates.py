@@ -40,9 +40,13 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from typing import TYPE_CHECKING, Any
 
 from truth_engine.db.models import DateSignalSource
 from truth_engine.extract._common import context_window
+
+if TYPE_CHECKING:  # spaCy stays a lazy import (pipeline extra); types only here
+    from spacy.tokens import Doc
 
 CONTENT_EXTRACTOR = "spacy+dateparser"
 DOC_META_EXTRACTOR = "doc_meta"
@@ -125,7 +129,7 @@ def filesystem_candidates(
 # --------------------------------------------------------------------------- #
 # Signal 2 — document-internal metadata (medium trust)                       #
 # --------------------------------------------------------------------------- #
-def doc_meta_candidates(embedded_metadata: dict | None) -> list[DateCandidate]:
+def doc_meta_candidates(embedded_metadata: dict[str, Any] | None) -> list[DateCandidate]:
     """Scan `ArtifactContent.embedded_metadata` for created/modified
     timestamps. Field names vary by parser (docx/pptx core properties, PDF
     info dict, EXIF tags nested under "exif"), so this matches by key-name
@@ -142,7 +146,7 @@ def doc_meta_candidates(embedded_metadata: dict | None) -> list[DateCandidate]:
 
 
 def _scan_metadata_dict(
-    metadata: dict,
+    metadata: dict[str, Any],
     candidates: list[DateCandidate],
     *,
     key_hint_override: tuple[str, ...] | None = None,
@@ -208,9 +212,10 @@ def _parse_pdf_date(match: re.Match[str]) -> datetime | None:
     # component; default month/day to 1 and time fields to 0. The timezone
     # suffix is intentionally not parsed — this is a medium-trust signal
     # already, and the date/time components are what matter for resolution.
-    year, month, day, hour, minute, second = (
+    year = int(match.group(1))  # the one required group in _PDF_DATE_RE
+    month, day, hour, minute, second = (
         int(g) if g else default
-        for g, default in zip(match.groups(), (None, 1, 1, 0, 0, 0), strict=True)
+        for g, default in zip(match.groups()[1:], (1, 1, 0, 0, 0), strict=True)
     )
     try:
         return datetime(year, month, day, hour, minute, second, tzinfo=UTC)
@@ -223,7 +228,7 @@ def _parse_pdf_date(match: re.Match[str]) -> datetime | None:
 # --------------------------------------------------------------------------- #
 def content_candidates(
     raw_text: str | None,
-    spacy_doc: object,
+    spacy_doc: Doc | None,
     anchor: datetime | None,
     *,
     min_year: int = _DEFAULT_MIN_YEAR,
@@ -313,7 +318,7 @@ _BARE_YEAR_RE = re.compile(r"^\d{4}$")
 _CONTENT_YEAR_ONLY_CONFIDENCE = 0.45  # lower than even a relative reference: no day/month at all
 
 
-def _merged_date_spans(spacy_doc: object, raw_text: str) -> list[tuple[str, int, int]]:
+def _merged_date_spans(spacy_doc: Doc, raw_text: str) -> list[tuple[str, int, int]]:
     """Adjacent spaCy DATE entities (separated only by whitespace/comma) are
     joined into one span before parsing — see `content_candidates` docstring."""
     date_ents = [ent for ent in spacy_doc.ents if ent.label_ == "DATE"]

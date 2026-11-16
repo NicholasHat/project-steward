@@ -14,9 +14,13 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from truth_engine.db.models import EntityType
 from truth_engine.extract._common import context_window
+
+if TYPE_CHECKING:  # spaCy stays a lazy import (pipeline extra); types only here
+    from spacy.tokens import Doc
 
 SPACY_EXTRACTOR = "spacy_ner"
 RULE_EXTRACTOR = "rule"
@@ -74,7 +78,7 @@ class EntityMentionCandidate:
     extractor: str
 
 
-def extract_entities(raw_text: str | None, spacy_doc: object) -> list[EntityMentionCandidate]:
+def extract_entities(raw_text: str | None, spacy_doc: Doc | None) -> list[EntityMentionCandidate]:
     if not raw_text:
         return []
 

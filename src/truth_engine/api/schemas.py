@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -151,8 +152,8 @@ class ArtifactDetailDTO(ArtifactSummaryDTO):
     ingested_at: datetime
     parser_name: str | None
     parser_version: str | None
-    structure: dict | None
-    embedded_metadata: dict | None
+    structure: dict[str, Any] | None
+    embedded_metadata: dict[str, Any] | None
     entities: list[EntityMentionDTO]
     resolved_dates: list[ResolvedDateDTO]
     edges: list[RelationshipEdgeDTO]
@@ -293,7 +294,7 @@ class ReportDTO(BaseModel):
     id: uuid.UUID
     version: int
     content: str
-    sections: dict
+    sections: dict[str, Any]
     generated_at: datetime
 
 

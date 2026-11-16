@@ -87,3 +87,9 @@ testpaths = ["tests"]
 python_version = "3.12"
 plugins = ["pydantic.mypy"]
 strict = true
+files = ["src"]
+
+# Libraries that ship neither inline types nor (installed) stubs.
+[[tool.mypy.overrides]]
+module = ["dateparser", "hdbscan", "openpyxl", "pandas", "sentence_transformers"]
+ignore_missing_imports = true

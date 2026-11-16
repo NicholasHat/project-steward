@@ -17,6 +17,7 @@ from __future__ import annotations
 import enum
 import uuid
 from datetime import datetime
+from typing import Any
 
 from fastapi_users_db_sqlalchemy import SQLAlchemyBaseUserTableUUID
 from pgvector.sqlalchemy import Vector
@@ -208,8 +209,10 @@ class ArtifactContent(Base):
         ForeignKey("artifacts.id", ondelete="CASCADE"), unique=True, index=True
     )
     raw_text: Mapped[str | None] = mapped_column(Text)
-    structure: Mapped[dict | None] = mapped_column(JSONB)  # headings/slide titles/sheet names
-    embedded_metadata: Mapped[dict | None] = mapped_column(JSONB)  # EXIF / Office / PDF props
+    # headings / slide titles / sheet names
+    structure: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+    # EXIF / Office / PDF props
+    embedded_metadata: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
     parser_name: Mapped[str] = mapped_column(String(64))
     parser_version: Mapped[str] = mapped_column(String(32))
 
@@ -226,8 +229,8 @@ class StructuredTable(Base):
         ForeignKey("artifacts.id", ondelete="CASCADE"), index=True
     )
     source: Mapped[str] = mapped_column(String(255))  # sheet / tab name
-    table_schema: Mapped[dict | None] = mapped_column(JSONB)
-    rows: Mapped[list | None] = mapped_column(JSONB)
+    table_schema: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+    rows: Mapped[list[Any] | None] = mapped_column(JSONB)
 
 
 # --------------------------------------------------------------------------- #
@@ -534,7 +537,7 @@ class Report(Base):
     # (the direction snapshot, or the current-labeled artifact set) changed.
     # This is what makes PROJECTSPECS.md §3.7/§3.8's "feel real rather than
     # batch-y" promise concrete rather than aspirational.
-    sections: Mapped[dict] = mapped_column(JSONB, default=dict)
+    sections: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
     # Hash of the union of every section's own fingerprint -- mirrors
     # DirectionSnapshot/DomainClassification's corpus_fingerprint_hash role:
     # unchanged since the current version -> the entire regeneration is a
@@ -553,8 +556,8 @@ class DecisionAudit(Base):
     id: Mapped[uuid.UUID] = _pk()
     decision_type: Mapped[str] = mapped_column(String(64), index=True)
     target_id: Mapped[uuid.UUID] = mapped_column(index=True)
-    old_value: Mapped[dict | None] = mapped_column(JSONB)
-    new_value: Mapped[dict | None] = mapped_column(JSONB)
+    old_value: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+    new_value: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
     actor: Mapped[AuditActor] = mapped_column(Enum(AuditActor, native_enum=False, length=8))
     model: Mapped[str | None] = mapped_column(String(128))
     model_version: Mapped[str | None] = mapped_column(String(64))

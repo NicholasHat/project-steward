@@ -58,12 +58,15 @@ def list_gaps(
                 select(PhaseTemplate.id, PhaseTemplate.phase_name).where(
                     PhaseTemplate.id.in_(phase_ids)
                 )
-            ).all()
+            ).tuples().all()
         )
         if phase_ids
         else {}
     )
-    items = [_gap_dto(g, phase_names.get(g.phase_id)) for g in rows]
+    items = [
+        _gap_dto(g, phase_names.get(g.phase_id) if g.phase_id is not None else None)
+        for g in rows
+    ]
     return Page(items=items, total=total, limit=page.limit, offset=page.offset)
 
 

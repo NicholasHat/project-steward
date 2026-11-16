@@ -18,10 +18,14 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from functools import lru_cache
+from typing import TYPE_CHECKING
 
 import httpx
 
 from truth_engine.config import Settings, get_settings
+
+if TYPE_CHECKING:  # optional `local-embeddings` extra; imported lazily at runtime
+    from sentence_transformers import SentenceTransformer
 
 
 # --------------------------------------------------------------------------- #
@@ -55,7 +59,8 @@ class OllamaProvider(LLMProvider):
         async with httpx.AsyncClient(timeout=120) as client:
             resp = await client.post(f"{self._base_url}/api/generate", json=payload)
             resp.raise_for_status()
-            return resp.json()["response"]
+            response: str = resp.json()["response"]
+            return response
 
 
 class AnthropicProvider(LLMProvider):
@@ -88,7 +93,8 @@ class AnthropicProvider(LLMProvider):
         async with httpx.AsyncClient(timeout=120) as client:
             resp = await client.post(self._API_URL, json=body, headers=headers)
             resp.raise_for_status()
-            return resp.json()["content"][0]["text"]
+            text: str = resp.json()["content"][0]["text"]
+            return text
 
 
 def _build_llm(settings: Settings) -> LLMProvider:
@@ -153,7 +159,8 @@ class OllamaEmbeddingProvider(EmbeddingProvider):
                 },
             )
             resp.raise_for_status()
-            return resp.json()["embeddings"]
+            embeddings: list[list[float]] = resp.json()["embeddings"]
+            return embeddings
 
 
 class SentenceTransformersEmbeddingProvider(EmbeddingProvider):
@@ -167,7 +174,7 @@ class SentenceTransformersEmbeddingProvider(EmbeddingProvider):
         self.model = model
         self.dim = dim
         self._num_ctx = num_ctx
-        self._st = None
+        self._st: SentenceTransformer | None = None
 
     def _ensure_loaded(self) -> None:
         if self._st is None:
@@ -186,7 +193,8 @@ class SentenceTransformersEmbeddingProvider(EmbeddingProvider):
     def embed(self, texts: list[str]) -> list[list[float]]:
         self._ensure_loaded()
         assert self._st is not None
-        return self._st.encode(texts, normalize_embeddings=True).tolist()
+        vectors: list[list[float]] = self._st.encode(texts, normalize_embeddings=True).tolist()
+        return vectors
 
 
 def _build_embedding(settings: Settings) -> EmbeddingProvider:

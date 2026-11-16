@@ -38,6 +38,9 @@ jobs:
       - name: Lint
         run: uv run ruff check src alembic tests
 
+      - name: Type check
+        run: uv run mypy
+
       - name: Apply migrations
         run: uv run alembic upgrade head
 

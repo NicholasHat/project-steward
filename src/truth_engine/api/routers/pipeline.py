@@ -166,8 +166,10 @@ def _execute_pipeline_run(
         if run is None:  # defensive: the route just created this row
             return
 
+        tracked_run = run  # narrowed non-None, which the closure below can't see
+
         def on_stage_start(stage: Stage) -> None:
-            run.current_stage = stage
+            tracked_run.current_stage = stage
             session.commit()
 
         try:

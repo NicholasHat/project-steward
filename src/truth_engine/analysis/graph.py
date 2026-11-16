@@ -353,6 +353,13 @@ def _scan_artifact_text(
 # --------------------------------------------------------------------------- #
 # Shared-entity signal                                                       #
 # --------------------------------------------------------------------------- #
+@dataclass
+class _SharedEntity:
+    type: EntityType
+    value: str
+    mentions: dict[uuid.UUID, str | None]  # artifact -> first mention's context
+
+
 def _entity_signal_edges(
     session: Session,
     project_id: uuid.UUID,
@@ -373,17 +380,14 @@ def _entity_signal_edges(
         .order_by(Entity.id, EntityMention.artifact_id)
     ).all()
 
-    by_entity: dict[uuid.UUID, dict[str, object]] = {}
+    by_entity: dict[uuid.UUID, _SharedEntity] = {}
     for entity_id, entity_type, value, artifact_id, mention_context in rows:
-        group = by_entity.setdefault(
-            entity_id, {"type": entity_type, "value": value, "mentions": {}}
-        )
-        mentions: dict[uuid.UUID, str | None] = group["mentions"]  # type: ignore[assignment]
-        mentions.setdefault(artifact_id, mention_context)
+        group = by_entity.setdefault(entity_id, _SharedEntity(entity_type, value, {}))
+        group.mentions.setdefault(artifact_id, mention_context)
 
     edges_by_src: dict[uuid.UUID, list[_CandidateEdge]] = defaultdict(list)
     for group in by_entity.values():
-        mentions: dict[uuid.UUID, str | None] = group["mentions"]  # type: ignore[assignment]
+        mentions = group.mentions
         if not (2 <= len(mentions) <= settings.graph_max_shared_entity_artifacts):
             # Not shared at all, or common/generic enough to appear across
             # much of the corpus -- neither is a precision-favoring signal.
@@ -401,7 +405,7 @@ def _entity_signal_edges(
             if earlier_date >= later_date:
                 continue  # tied dates -- no basis for a direction, skip rather than guess
             mention_context = mentions.get(later_id) or mentions.get(earlier_id) or ""
-            evidence = f'shared {group["type"].value} "{group["value"]}": {mention_context}'.strip()
+            evidence = f'shared {group.type.value} "{group.value}": {mention_context}'.strip()
             edges_by_src[later_id].append(
                 _CandidateEdge(earlier_id, EdgeType.mentioned_by, ENTITY_CONFIDENCE, evidence)
             )
@@ -416,7 +420,7 @@ def _chosen_dates(session: Session, project_id: uuid.UUID) -> dict[uuid.UUID, da
         select(ResolvedDate.artifact_id, ResolvedDate.candidate_date)
         .join(Artifact, Artifact.id == ResolvedDate.artifact_id)
         .where(Artifact.project_id == project_id, ResolvedDate.is_chosen.is_(True))
-    ).all()
+    ).tuples().all()
     return dict(rows)
 
 

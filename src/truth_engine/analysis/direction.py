@@ -248,7 +248,7 @@ def _chosen_dates(session: Session, project_id: uuid.UUID) -> dict[uuid.UUID, da
         select(ResolvedDate.artifact_id, ResolvedDate.candidate_date)
         .join(Artifact, Artifact.id == ResolvedDate.artifact_id)
         .where(Artifact.project_id == project_id, ResolvedDate.is_chosen.is_(True))
-    ).all()
+    ).tuples().all()
     return dict(rows)
 
 
@@ -353,7 +353,7 @@ def _cosine_similarity(a: list[float], b: list[float]) -> float:
     norm_b = sum(x * x for x in b) ** 0.5
     if norm_a == 0 or norm_b == 0:
         return 0.0
-    return dot / (norm_a * norm_b)
+    return float(dot / (norm_a * norm_b))
 
 
 def _normalize(vector: list[float]) -> list[float]:

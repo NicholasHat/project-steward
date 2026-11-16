@@ -69,6 +69,7 @@ Tests and lint (the suite exercises the parsers and NER, so it needs the `pipeli
 ```bash
 uv sync --extra dev --extra pipeline
 uv run ruff check src alembic tests
+uv run mypy                         # strict, configured in pyproject.toml
 uv run pytest                       # runs against the migrated dev DB, each test rolled back
 ```
 

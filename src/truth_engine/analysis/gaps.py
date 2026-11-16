@@ -148,6 +148,7 @@ import re
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
+from typing import Any
 
 from sqlalchemy import create_engine, func, select
 from sqlalchemy.orm import Session
@@ -279,7 +280,7 @@ def _chosen_dates(session: Session, project_id: uuid.UUID) -> dict[uuid.UUID, da
         select(ResolvedDate.artifact_id, ResolvedDate.candidate_date)
         .join(Artifact, Artifact.id == ResolvedDate.artifact_id)
         .where(Artifact.project_id == project_id, ResolvedDate.is_chosen.is_(True))
-    ).all()
+    ).tuples().all()
     return dict(rows)
 
 
@@ -404,7 +405,7 @@ def _detect_structural_gaps(
                 PhaseAssignment.phase_id.in_([p.id for p in phases]),
             )
             .group_by(PhaseAssignment.phase_id)
-        ).all()
+        ).tuples().all()
     )
     total_artifacts = (
         session.scalar(
@@ -843,7 +844,9 @@ class _ReconcileCounts:
     pruned: int = 0
 
 
-def _audit_if_promised(session: Session, gap: Gap, draft: _GapDraft, *, old: dict | None) -> None:
+def _audit_if_promised(
+    session: Session, gap: Gap, draft: _GapDraft, *, old: dict[str, Any] | None
+) -> None:
     if draft.type != GapType.promised_unfulfilled:
         return  # structural gaps are deterministic + self-documenting -- see module docstring
     session.add(

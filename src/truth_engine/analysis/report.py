@@ -137,6 +137,7 @@ import uuid
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
+from typing import Any
 
 from sqlalchemy import create_engine, func, select
 from sqlalchemy.orm import Session
@@ -229,7 +230,7 @@ def _chosen_dates(session: Session, project_id: uuid.UUID) -> dict[uuid.UUID, da
         select(ResolvedDate.artifact_id, ResolvedDate.candidate_date)
         .join(Artifact, Artifact.id == ResolvedDate.artifact_id)
         .where(Artifact.project_id == project_id, ResolvedDate.is_chosen.is_(True))
-    ).all()
+    ).tuples().all()
     return dict(rows)
 
 
@@ -600,7 +601,7 @@ def _render_activity(
     for event in events:
         artifact = artifacts_by_id.get(event.artifact_id) if event.artifact_id else None
         name = (
-            _clean_name(artifact, projections.get(event.artifact_id))
+            _clean_name(artifact, projections.get(artifact.id))
             if artifact is not None
             else event.description
         )
@@ -680,7 +681,7 @@ def _stale_labels(session: Session, project_id: uuid.UUID) -> list[tuple[Artifac
             DirectionLabel.label == DirectionLabelValue.superseded,
         )
         .order_by(DirectionLabel.confidence.desc(), Artifact.id)
-    ).all()
+    ).tuples().all()
     return list(rows)
 
 
@@ -757,7 +758,7 @@ def _combine_fingerprint(section_fingerprints: dict[str, str]) -> str:
 
 
 def _compose_markdown(
-    project: Project, version: int, generated_at: datetime, sections: dict[str, dict]
+    project: Project, version: int, generated_at: datetime, sections: dict[str, dict[str, Any]]
 ) -> str:
     parts = [
         f"# Project Report — {project.name}",
@@ -772,7 +773,7 @@ def _compose_markdown(
 
 
 def _audit_model(
-    new_sections: dict[str, dict], changed_sections: list[str], provider: LLMProvider
+    new_sections: dict[str, dict[str, Any]], changed_sections: list[str], provider: LLMProvider
 ) -> tuple[str, str]:
     """The report-version audit row's own model/model_version: the real LLM
     provider only if the current-direction section was actually
@@ -822,8 +823,8 @@ def run_project_report(
         result.report = latest
         return result  # true no-op
 
-    prior_sections: dict = latest.sections if latest is not None else {}
-    new_sections: dict[str, dict] = {}
+    prior_sections: dict[str, Any] = latest.sections if latest is not None else {}
+    new_sections: dict[str, dict[str, Any]] = {}
     for name in SECTION_ORDER:
         fingerprint = section_fingerprints[name]
         prior = prior_sections.get(name)

@@ -22,7 +22,7 @@ from truth_engine.db.session import get_async_session
 
 async def get_user_db(
     session: AsyncSession = Depends(get_async_session),
-) -> AsyncGenerator[SQLAlchemyUserDatabase, None]:
+) -> AsyncGenerator[SQLAlchemyUserDatabase[User, uuid.UUID], None]:
     yield SQLAlchemyUserDatabase(session, User)
 
 
@@ -32,7 +32,7 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
 
 
 async def get_user_manager(
-    user_db: SQLAlchemyUserDatabase = Depends(get_user_db),
+    user_db: SQLAlchemyUserDatabase[User, uuid.UUID] = Depends(get_user_db),
 ) -> AsyncGenerator[UserManager, None]:
     yield UserManager(user_db)
 
@@ -40,7 +40,7 @@ async def get_user_manager(
 bearer_transport = BearerTransport(tokenUrl="auth/jwt/login")
 
 
-def get_jwt_strategy() -> JWTStrategy:
+def get_jwt_strategy() -> JWTStrategy[User, uuid.UUID]:
     return JWTStrategy(secret=get_settings().secret_key, lifetime_seconds=3600)
 
 

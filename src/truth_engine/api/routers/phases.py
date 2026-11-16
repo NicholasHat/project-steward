@@ -62,7 +62,7 @@ def get_phases(
                     PhaseAssignment.phase_id.in_([t.id for t in templates]),
                 )
                 .group_by(PhaseAssignment.phase_id)
-            ).all()
+            ).tuples().all()
         )
     phases = [
         PhaseTemplateCoverageDTO(

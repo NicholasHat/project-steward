@@ -194,7 +194,7 @@ def _chosen_dates(session: Session, project_id: uuid.UUID) -> dict[uuid.UUID, da
         select(ResolvedDate.artifact_id, ResolvedDate.candidate_date)
         .join(Artifact, Artifact.id == ResolvedDate.artifact_id)
         .where(Artifact.project_id == project_id, ResolvedDate.is_chosen.is_(True))
-    ).all()
+    ).tuples().all()
     return dict(rows)
 
 
@@ -267,7 +267,7 @@ def _choose_category(
         select(PhaseAssignment, PhaseTemplate)
         .join(PhaseTemplate, PhaseTemplate.id == PhaseAssignment.phase_id)
         .where(PhaseAssignment.artifact_id == artifact_id)
-    ).all()
+    ).tuples().all()
     if not rows:
         return _CategoryChoice(settings.view_generic_category, None)
 
@@ -561,7 +561,9 @@ def apply_human_name_override(
     """
     settings = get_settings()
     current = current_projection(session, artifact.id)
-    category = current.suggested_category if current is not None else settings.view_generic_category
+    category = settings.view_generic_category
+    if current is not None and current.suggested_category is not None:
+        category = current.suggested_category
     chosen_date = session.scalar(
         select(ResolvedDate.candidate_date).where(
             ResolvedDate.artifact_id == artifact.id, ResolvedDate.is_chosen.is_(True)
