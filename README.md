@@ -64,11 +64,13 @@ Frontend:
 cd frontend && npm install && npm run dev   # http://localhost:5173
 ```
 
-Tests and lint:
+Tests and lint (the suite exercises the parsers and NER, so it needs the `pipeline` extra and the spaCy model, as in CI):
 
 ```bash
+uv sync --extra dev --extra pipeline
+uv run python -m spacy download en_core_web_sm   # not in the lockfile: re-run after a plain `uv sync`
 uv run ruff check src alembic tests
-uv run pytest                       # runs against the migrated dev DB
+uv run pytest                       # runs against the migrated dev DB, each test rolled back
 ```
 
 To change the schema: edit `src/truth_engine/db/models.py`, then `uv run alembic revision --autogenerate -m "message"` and review the migration (see `CLAUDE.md` for the required hand-fixups).
@@ -85,7 +87,7 @@ Self-hosted means the whole system runs on a box you control. In the default con
    docker compose exec ollama ollama pull nomic-embed-text
    docker compose exec ollama ollama pull llama3.1:8b   # skip if TRUTH_LLM_PROVIDER=anthropic
    ```
-5. The app is reachable at your domain. Ingested data lives only in the `pgdata` and `artifacts` volumes.
+5. The API is reachable at your domain. The compose stack does not serve the dashboard: build it with `VITE_API_BASE_URL` set to your domain and host the static `frontend/dist` anywhere, adding its origin to `TRUTH_CORS_ORIGINS` (a JSON list, e.g. `["https://dash.example.com"]`). Ingested data lives only in the `pgdata` and `artifacts` volumes.
 
 ### Compute cost
 
