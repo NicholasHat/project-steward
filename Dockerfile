@@ -4,7 +4,7 @@
 FROM python:3.12-slim AS build
 
 # uv for fast, reproducible installs.
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+COPY --from=ghcr.io/astral-sh/uv:0.13.8 /uv /usr/local/bin/uv
 
 # A C toolchain for deps without a prebuilt wheel on every platform
 # (hdbscan ships no linux/arm64 wheel, e.g. Docker on Apple Silicon).

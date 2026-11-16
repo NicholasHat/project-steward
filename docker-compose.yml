@@ -20,7 +20,7 @@ services:
       retries: 10
 
   ollama:
-    image: ollama/ollama:latest
+    image: ollama/ollama:0.40.16
     volumes:
       - ollama:/root/.ollama
     # Uncomment on a GPU host (needs the NVIDIA container toolkit):
